@@ -1,0 +1,15 @@
+# Titan V8 Configuration
+# Multi-Agent Volatility Prediction Research Project
+
+project_name: "titan_v8"
+seed: 42
+
+data:
+  tickers: ['SPY', 'QQQ', 'IWM', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'JPM']
+  # Note: Paths are relative to project root
+  raw_path: "data/raw"
+  processed_path: "data/processed"
+
+mlflow:
+  experiment_name: "titan_v8_dev"
+

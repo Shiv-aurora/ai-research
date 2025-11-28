@@ -1,0 +1,31 @@
+# Titan V8 .gitignore
+
+# Data directories (large files)
+data/
+
+# MLflow local storage
+mlruns/
+
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Parquet files
+*.parquet
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

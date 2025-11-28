@@ -1,0 +1,27 @@
+# Titan V8 Dependencies
+# Multi-Agent Volatility Prediction Research Project
+
+# Data Processing
+pandas
+numpy
+
+# Machine Learning
+scikit-learn
+lightgbm
+xgboost
+
+# Experiment Tracking
+mlflow
+
+# Financial Data Sources
+yfinance
+polygon-api-client
+
+# Configuration
+pyyaml
+
+# NLP / Embeddings
+sentence-transformers
+
+# Volatility Modeling
+arch
