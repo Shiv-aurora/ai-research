@@ -254,6 +254,162 @@ def fetch_dividends(
         return pd.DataFrame()
 
 
+# =============================================================================
+# FUNDAMENTAL DATA: Financials (Balance Sheet)
+# =============================================================================
+
+def fetch_financials(
+    client: RESTClient,
+    ticker: str,
+    start_date: str,
+    end_date: str
+) -> pd.DataFrame:
+    """
+    Fetch quarterly financial data and calculate debt-to-equity ratio.
+    
+    Features created:
+        - debt_to_equity: liabilities / (assets - liabilities)
+    
+    CRUCIAL: Financials are quarterly. We resample to daily and forward-fill
+    so each trading day has the most recent known financial ratio.
+    
+    Args:
+        client: Polygon REST client
+        ticker: Stock ticker symbol
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+    
+    Returns:
+        DataFrame with date and debt_to_equity (daily frequency, forward-filled)
+    """
+    try:
+        financials = []
+        
+        # Use vX (experimental) endpoint for stock financials
+        for fin in client.vx.list_stock_financials(ticker=ticker, limit=100):
+            # Get filing date or period end date
+            filing_date = getattr(fin, "filing_date", None)
+            if not filing_date:
+                filing_date = getattr(fin, "end_date", None)
+            
+            if not filing_date:
+                continue
+            
+            # Extract balance sheet data
+            financials_data = getattr(fin, "financials", None)
+            if not financials_data:
+                continue
+            
+            balance_sheet = getattr(financials_data, "balance_sheet", None)
+            if not balance_sheet:
+                continue
+            
+            # Get assets and liabilities
+            assets_obj = getattr(balance_sheet, "assets", None)
+            liabilities_obj = getattr(balance_sheet, "liabilities", None)
+            
+            assets = getattr(assets_obj, "value", None) if assets_obj else None
+            liabilities = getattr(liabilities_obj, "value", None) if liabilities_obj else None
+            
+            if assets is not None and liabilities is not None and assets > liabilities:
+                equity = assets - liabilities
+                debt_to_equity = liabilities / equity if equity > 0 else np.nan
+                
+                financials.append({
+                    "date": pd.to_datetime(filing_date),
+                    "assets": assets,
+                    "liabilities": liabilities,
+                    "debt_to_equity": debt_to_equity
+                })
+        
+        time.sleep(0.12)
+        
+        if not financials:
+            return pd.DataFrame()
+        
+        fin_df = pd.DataFrame(financials)
+        fin_df = fin_df.sort_values("date").drop_duplicates(subset=["date"])
+        
+        # Set date as index for resampling
+        fin_df = fin_df.set_index("date")
+        
+        # Resample to daily and forward-fill
+        date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+        daily_df = fin_df[["debt_to_equity"]].reindex(date_range)
+        daily_df = daily_df.ffill()  # Forward fill quarterly data to daily
+        
+        # Reset index
+        daily_df = daily_df.reset_index()
+        daily_df = daily_df.rename(columns={"index": "date"})
+        
+        return daily_df
+        
+    except Exception as e:
+        # ETFs and some tickers don't have financials
+        return pd.DataFrame()
+
+
+# =============================================================================
+# TECHNICAL DATA: RSI
+# =============================================================================
+
+def fetch_rsi(
+    client: RESTClient,
+    ticker: str,
+    start_date: str,
+    end_date: str,
+    window: int = 14
+) -> pd.DataFrame:
+    """
+    Fetch RSI (Relative Strength Index) technical indicator.
+    
+    Args:
+        client: Polygon REST client
+        ticker: Stock ticker symbol
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        window: RSI window period (default: 14)
+    
+    Returns:
+        DataFrame with date and rsi_14
+    """
+    try:
+        rsi_data = []
+        
+        # Polygon's technical indicator endpoint
+        for rsi in client.get_rsi(
+            ticker=ticker,
+            timespan="day",
+            window=window,
+            timestamp_gte=start_date,
+            timestamp_lte=end_date,
+            limit=50000
+        ):
+            timestamp = getattr(rsi, "timestamp", None)
+            value = getattr(rsi, "value", None)
+            
+            if timestamp and value is not None:
+                rsi_data.append({
+                    "date": pd.Timestamp(timestamp, unit="ms").normalize(),
+                    "rsi_14": value
+                })
+        
+        time.sleep(0.12)
+        
+        if not rsi_data:
+            return pd.DataFrame()
+        
+        rsi_df = pd.DataFrame(rsi_data)
+        rsi_df["date"] = pd.to_datetime(rsi_df["date"]).dt.tz_localize(None)
+        rsi_df = rsi_df.drop_duplicates(subset=["date"])
+        
+        return rsi_df
+        
+    except Exception as e:
+        # Some tickers might not have RSI data
+        return pd.DataFrame()
+
+
 def fetch_macro_context(
     client: RESTClient,
     start_date: str,
