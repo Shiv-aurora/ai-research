@@ -374,27 +374,34 @@ def fetch_rsi(
         DataFrame with date and rsi_14
     """
     try:
-        rsi_data = []
-        
-        # Polygon's technical indicator endpoint
-        for rsi in client.get_rsi(
+        # Polygon's get_rsi returns SingleIndicatorResults object
+        result = client.get_rsi(
             ticker=ticker,
             timespan="day",
             window=window,
             timestamp_gte=start_date,
             timestamp_lte=end_date,
-            limit=50000
-        ):
-            timestamp = getattr(rsi, "timestamp", None)
-            value = getattr(rsi, "value", None)
+            limit=5000,
+            order="asc"
+        )
+        
+        time.sleep(0.12)
+        
+        # Extract values from result
+        values = getattr(result, "values", None)
+        if not values:
+            return pd.DataFrame()
+        
+        rsi_data = []
+        for val in values:
+            timestamp = getattr(val, "timestamp", None)
+            value = getattr(val, "value", None)
             
             if timestamp and value is not None:
                 rsi_data.append({
                     "date": pd.Timestamp(timestamp, unit="ms").normalize(),
                     "rsi_14": value
                 })
-        
-        time.sleep(0.12)
         
         if not rsi_data:
             return pd.DataFrame()
@@ -406,7 +413,7 @@ def fetch_rsi(
         return rsi_df
         
     except Exception as e:
-        # Some tickers might not have RSI data
+        # Some tickers might not have RSI data (requires Polygon premium)
         return pd.DataFrame()
 
 
