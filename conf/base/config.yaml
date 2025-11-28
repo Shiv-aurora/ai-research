@@ -6,6 +6,8 @@ seed: 42
 
 data:
   tickers: ['SPY', 'QQQ', 'IWM', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'JPM']
+  start_date: "2018-01-01"
+  end_date: "2024-12-31"
   # Note: Paths are relative to project root
   raw_path: "data/raw"
   processed_path: "data/processed"
