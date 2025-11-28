@@ -529,10 +529,9 @@ def fetch_market_data(config: dict) -> pd.DataFrame:
     
     print("📊 Processing Individual Tickers...")
     for ticker in tqdm(tickers, desc="Fetching tickers"):
-        # Skip SPY if already in macro (we'll use it for context)
-        # But still process it as a target ticker
-        
-        # Fetch 5-minute bars
+        # =============================================
+        # 1. Fetch Price Data (5-minute bars)
+        # =============================================
         df_5min = fetch_5min_bars(client, ticker, start_date, end_date)
         
         if df_5min.empty:
@@ -547,6 +546,36 @@ def fetch_market_data(config: dict) -> pd.DataFrame:
         
         # Create target variable
         df_daily = create_target_variable(df_daily)
+        
+        # =============================================
+        # 2. Fetch Dividend Data (Event)
+        # =============================================
+        div_df = fetch_dividends(client, ticker, start_date, end_date)
+        if not div_df.empty:
+            df_daily = df_daily.merge(div_df, on="date", how="left")
+            df_daily["is_ex_dividend"] = df_daily["is_ex_dividend"].fillna(0).astype(int)
+        else:
+            df_daily["is_ex_dividend"] = 0
+            df_daily["days_to_ex_div"] = np.nan
+        
+        # =============================================
+        # 3. Fetch Financial Data (Fundamental)
+        # =============================================
+        fin_df = fetch_financials(client, ticker, start_date, end_date)
+        if not fin_df.empty:
+            df_daily = df_daily.merge(fin_df, on="date", how="left")
+        else:
+            # ETFs and some tickers don't have financials - fill with NaN
+            df_daily["debt_to_equity"] = np.nan
+        
+        # =============================================
+        # 4. Fetch RSI Data (Technical)
+        # =============================================
+        rsi_df = fetch_rsi(client, ticker, start_date, end_date)
+        if not rsi_df.empty:
+            df_daily = df_daily.merge(rsi_df, on="date", how="left")
+        else:
+            df_daily["rsi_14"] = np.nan
         
         # Add ticker column
         df_daily["ticker"] = ticker
