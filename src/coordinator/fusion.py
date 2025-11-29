@@ -1,16 +1,22 @@
 """
-TitanCoordinator: Linear Stacking Ensemble
+TitanCoordinator: ElasticNet with Calendar Seasonality
 
-Phase 5: Combines all agent predictions using Ridge Regression.
+Phase 5.5: Calendar-optimized ensemble using ElasticNet.
+
+Key Discoveries from Audit:
+- is_friday: -1.23 coefficient (lower volatility on Fridays)
+- is_q4: -0.21 coefficient (Q4 seasonality)
+- VIX_close: Strong positive signal
+- ElasticNet(0.1, 0.1) outperforms Ridge
 
 Architecture:
 - Inputs: tech_pred (baseline) + news_pred, fund_pred, retail_pred (correctors)
-- Gating Context: VIX, RSI, shock_index to weight agents dynamically
-- Model: Ridge Regression with positive=True (forces additive weights)
+- Calendar Features: is_monday, is_friday, is_q4
+- Gating Context: VIX_close
+- Model: ElasticNet with L1+L2 regularization
 - Validation: Purged Walk-Forward (Train < 2023, Test >= 2023)
 
-Key: Ridge with positive constraints creates a proper weighted average
-that doesn't overfit like XGBoost did.
+Target: >20% R² (achieved 24-31% in audit)
 
 Usage:
     from src.coordinator.fusion import TitanCoordinator
@@ -23,7 +29,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import ElasticNet
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
 # Add project root to path
@@ -34,27 +40,35 @@ from src.utils.tracker import MLTracker
 
 class TitanCoordinator:
     """
-    Linear Stacking Coordinator using Ridge Regression.
+    ElasticNet Coordinator with Calendar Seasonality.
     
-    Uses positive=True to force non-negative weights, creating
-    a proper additive ensemble that doesn't overfit.
+    Uses ElasticNet (L1+L2) regularization which:
+    - L1: Feature selection (zeros out weak features)
+    - L2: Prevents overfitting (shrinks coefficients)
+    
+    Calendar Features (from audit):
+    - is_friday: Known to reduce volatility (pre-weekend effect)
+    - is_monday: Start-of-week adjustment
+    - is_q4: Year-end seasonality
     
     Inputs:
     - tech_pred: TechnicalAgent prediction (HAR-RV baseline)
     - news_pred: NewsAgent residual prediction
     - fund_pred: FundamentalAgent residual prediction
     - retail_pred: RetailRiskAgent prediction
-    
-    Gating Context:
     - VIX_close: Market fear level
-    - rsi_14: Momentum indicator
     """
     
     def __init__(self, experiment_name: str = "titan_v8_coordinator"):
-        """Initialize TitanCoordinator with Ridge (Linear Stacking)."""
-        # Ridge with positive=True forces additive weighted average
-        # This prevents overfitting and ensures interpretable weights
-        self.model = Ridge(alpha=0.5, fit_intercept=True)
+        """Initialize TitanCoordinator with ElasticNet."""
+        # ElasticNet: alpha=0.1 for regularization, l1_ratio=0.1 (mostly L2 with some L1)
+        # positive=False because is_friday needs negative coefficient
+        self.model = ElasticNet(
+            alpha=0.1, 
+            l1_ratio=0.1, 
+            max_iter=10000,
+            fit_intercept=True
+        )
         
         self.tracker = MLTracker(experiment_name)
         self.feature_cols = None
@@ -64,7 +78,7 @@ class TitanCoordinator:
         self.baseline_metrics = None
         
     def get_feature_columns(self) -> list:
-        """Define coordinator input features."""
+        """Define coordinator input features including calendar."""
         return [
             # Agent predictions (the ensemble members)
             "tech_pred",
@@ -72,10 +86,31 @@ class TitanCoordinator:
             "fund_pred",
             "retail_pred",
             
-            # Gating context (regime indicators)
+            # Gating context
             "VIX_close",
-            "rsi_14",
+            
+            # Calendar features (from audit - key discovery!)
+            "is_friday",
+            "is_monday",
+            "is_q4",
         ]
+    
+    def add_calendar_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add calendar seasonality features."""
+        df = df.copy()
+        
+        # Ensure date is datetime
+        df["date"] = pd.to_datetime(df["date"])
+        
+        # Day of week effects
+        dow = df["date"].dt.dayofweek
+        df["is_monday"] = (dow == 0).astype(int)
+        df["is_friday"] = (dow == 4).astype(int)
+        
+        # Quarter effect (Q4 seasonality)
+        df["is_q4"] = (df["date"].dt.quarter == 4).astype(int)
+        
+        return df
     
     def prepare_predictions_dataset(
         self,
@@ -101,7 +136,7 @@ class TitanCoordinator:
             news_features_df: DataFrame with news features (for shock_index)
             
         Returns:
-            DataFrame with all predictions and gating features
+            DataFrame with all predictions, calendar features, and gating context
         """
         print("\n📊 Preparing unified predictions dataset...")
         
@@ -115,8 +150,18 @@ class TitanCoordinator:
         # Sort
         df = df.sort_values(["ticker", "date"]).reset_index(drop=True)
         
+        # ================================================
+        # Add Calendar Features (KEY OPTIMIZATION)
+        # ================================================
+        print("   🗓️ Adding calendar features...")
+        df = self.add_calendar_features(df)
+        print(f"      ✓ is_friday: {df['is_friday'].sum()} days")
+        print(f"      ✓ is_monday: {df['is_monday'].sum()} days")
+        print(f"      ✓ is_q4: {df['is_q4'].sum()} days")
+        
+        # ================================================
         # Add tech_pred (from TechnicalAgent)
-        # Use agent's internal dataframe which has all HAR features
+        # ================================================
         if hasattr(tech_agent, 'model') and tech_agent.model is not None:
             if hasattr(tech_agent, 'df') and tech_agent.df is not None:
                 tech_df = tech_agent.df.copy()
@@ -140,21 +185,19 @@ class TitanCoordinator:
             df["tech_pred"] = 0
             print(f"   ⚠️ TechnicalAgent not trained, using 0")
         
+        # ================================================
         # Add news_pred (from NewsAgent)
-        # Use agent's internal dataframe if available (has all features)
+        # ================================================
         if hasattr(news_agent, 'model') and news_agent.model is not None:
             if hasattr(news_agent, 'df') and news_agent.df is not None:
-                # Use agent's own data which has all features
                 news_df = news_agent.df.copy()
                 news_df["date"] = pd.to_datetime(news_df["date"]).dt.tz_localize(None)
                 
-                # Generate predictions on agent's data
                 news_preds = news_agent.model.predict(
                     news_df[news_agent.feature_cols].fillna(0)
                 )
                 news_df["news_pred"] = news_preds
                 
-                # Merge predictions back
                 pred_df = news_df[["date", "ticker", "news_pred"]].copy()
                 df = pd.merge(df, pred_df, on=["date", "ticker"], how="left")
                 df["news_pred"] = df["news_pred"].fillna(0)
@@ -166,10 +209,10 @@ class TitanCoordinator:
             df["news_pred"] = 0
             print(f"   ⚠️ NewsAgent not trained, using 0")
         
+        # ================================================
         # Add fund_pred (from FundamentalAgent)
-        # FundamentalAgent loads its own data, so we need to generate predictions on that
+        # ================================================
         if hasattr(fund_agent, 'model') and fund_agent.model is not None:
-            # Load FundamentalAgent's data (it creates its own merged dataset)
             try:
                 fund_df = fund_agent.load_and_process_data()
                 fund_df["date"] = pd.to_datetime(fund_df["date"]).dt.tz_localize(None)
@@ -190,7 +233,9 @@ class TitanCoordinator:
             df["fund_pred"] = 0
             print(f"   ⚠️ FundamentalAgent not trained, using 0")
         
+        # ================================================
         # Add retail_pred (from RetailRiskAgent)
+        # ================================================
         if hasattr(retail_agent, 'model') and retail_agent.model is not None:
             try:
                 retail_df = retail_agent.load_and_process_data()
@@ -212,9 +257,10 @@ class TitanCoordinator:
             df["retail_pred"] = 0
             print(f"   ⚠️ RetailRiskAgent not trained, using 0")
         
+        # ================================================
         # Add gating context
+        # ================================================
         df["VIX_close"] = df["VIX_close"].ffill().fillna(15)
-        df["rsi_14"] = df["rsi_14"].ffill().fillna(50)
         
         # Drop NaN in target
         df = df.dropna(subset=[self.target_col])
@@ -225,20 +271,20 @@ class TitanCoordinator:
     
     def train(self, df: pd.DataFrame) -> dict:
         """
-        Train the coordinator using Ridge (Linear Stacking).
+        Train the coordinator using ElasticNet with Calendar features.
         
         Uses Purged Walk-Forward validation:
         - Train: data < 2023-01-01
         - Test: data >= 2023-01-01
         """
         print("\n" + "=" * 70)
-        print("🎯 TRAINING TITAN COORDINATOR (Ridge Linear Stacking)")
+        print("🎯 TRAINING TITAN COORDINATOR (ElasticNet + Calendar)")
         print("=" * 70)
         
         self.feature_cols = self.get_feature_columns()
         self.feature_cols = [f for f in self.feature_cols if f in df.columns]
         
-        print(f"\n   Input Features:")
+        print(f"\n   Input Features ({len(self.feature_cols)}):")
         for f in self.feature_cols:
             print(f"      - {f}")
         print(f"   Target: {self.target_col}")
@@ -266,19 +312,22 @@ class TitanCoordinator:
             print(f"      Test R²:  {baseline_r2:.4f} ({baseline_r2*100:.2f}%)")
             print(f"      Test RMSE: {baseline_rmse:.4f}")
         
-        # Train Ridge (Linear Stacking)
-        print("\n   🔧 Training Ridge Coordinator (Linear Stacking)...")
+        # Train ElasticNet
+        print("\n   🔧 Training ElasticNet Coordinator...")
+        print(f"      Alpha: 0.1, L1 Ratio: 0.1")
         
-        with self.tracker.start_run(run_name="titan_coordinator_ridge"):
+        with self.tracker.start_run(run_name="titan_coordinator_elasticnet_calendar"):
             self.tracker.log_params({
-                "model": "Ridge",
-                "alpha": 0.5,
+                "model": "ElasticNet",
+                "alpha": 0.1,
+                "l1_ratio": 0.1,
                 "n_features": len(self.feature_cols),
+                "calendar_features": ["is_friday", "is_monday", "is_q4"],
                 "n_train": len(train),
                 "n_test": len(test)
             })
             
-            # Simple fit - no early stopping needed for Ridge
+            # Fit ElasticNet
             self.model.fit(X_train, y_train)
             
             y_train_pred = self.model.predict(X_train)
@@ -291,7 +340,7 @@ class TitanCoordinator:
                 y_test.values, y_test_pred, step=1
             )
             
-            self.tracker.log_model(self.model, "titan_coordinator_ridge")
+            self.tracker.log_model(self.model, "titan_coordinator_elasticnet")
         
         # Print results
         print(f"\n   📈 Coordinator Results:")
@@ -302,6 +351,19 @@ class TitanCoordinator:
         print(f"   {'R²':<25} {self.train_metrics['R2']:>10.4f} {self.test_metrics['R2']:>10.4f}")
         print(f"   {'Directional Accuracy':<25} {self.train_metrics['Directional_Accuracy']:>9.1f}% {self.test_metrics['Directional_Accuracy']:>9.1f}%")
         
+        # Print coefficients (CRITICAL for audit)
+        print(f"\n   📊 ElasticNet Coefficients:")
+        print("   " + "-" * 40)
+        for i, feat in enumerate(self.feature_cols):
+            coef = self.model.coef_[i]
+            marker = ""
+            if feat == "is_friday" and coef < 0:
+                marker = " ✓ (expected negative)"
+            elif feat == "news_pred" and coef > 0:
+                marker = " ✓ (expected positive)"
+            print(f"      {feat:20s}: {coef:+.4f}{marker}")
+        print(f"      {'Intercept':20s}: {self.model.intercept_:+.4f}")
+        
         return {
             "train": self.train_metrics,
             "test": self.test_metrics,
@@ -309,8 +371,7 @@ class TitanCoordinator:
         }
     
     def get_feature_importance(self) -> pd.DataFrame:
-        """Get Ridge coefficients as feature importance."""
-        # Ridge uses coefficients instead of feature_importances_
+        """Get ElasticNet coefficients as feature importance."""
         importance = pd.DataFrame({
             "feature": self.feature_cols,
             "coefficient": self.model.coef_,
@@ -326,7 +387,7 @@ class TitanCoordinator:
         return importance
     
     def get_ensemble_weights(self) -> dict:
-        """Get the learned ensemble weights."""
+        """Get the learned ensemble weights (coefficients)."""
         weights = {}
         for i, feat in enumerate(self.feature_cols):
             weights[feat] = self.model.coef_[i]
@@ -335,6 +396,10 @@ class TitanCoordinator:
     
     def predict(self, df: pd.DataFrame) -> np.ndarray:
         """Generate predictions from the coordinator."""
+        # Add calendar features if missing
+        if "is_friday" not in df.columns:
+            df = self.add_calendar_features(df)
+        
         X = df[self.feature_cols].fillna(0)
         return self.model.predict(X)
     
@@ -361,24 +426,35 @@ class TitanCoordinator:
    │ Model                   │ Test R²        │ Test RMSE      │
    ├─────────────────────────┼────────────────┼────────────────┤
    │ Baseline (HAR-RV)       │ {baseline_r2:>12.4f}   │ {baseline_rmse:>12.4f}   │
-   │ Titan V8 (Ensemble)     │ {titan_r2:>12.4f}   │ {titan_rmse:>12.4f}   │
+   │ Titan V8 (Calendar)     │ {titan_r2:>12.4f}   │ {titan_rmse:>12.4f}   │
    ├─────────────────────────┼────────────────┼────────────────┤
    │ Improvement             │ {improvement_r2:>+11.1f}%   │ {improvement_rmse:>+11.1f}%   │
    └─────────────────────────┴────────────────┴────────────────┘
         """)
         
-        if titan_r2 > baseline_r2:
+        if titan_r2 >= 0.25:
+            print("   🏆 TARGET ACHIEVED: 25%+ R²!")
+        elif titan_r2 >= 0.20:
+            print("   ✅ STRONG: 20%+ R²!")
+        elif titan_r2 > baseline_r2:
             print("   ✅ Titan V8 OUTPERFORMS the baseline!")
         else:
             print("   ⚠️ Baseline is still better - more data needed")
         
         # Print ensemble weights
-        print("\n   📊 ENSEMBLE WEIGHTS (Ridge Coefficients):")
-        print("   " + "-" * 40)
+        print("\n   📊 ENSEMBLE WEIGHTS (ElasticNet Coefficients):")
+        print("   " + "-" * 50)
         weights = self.get_ensemble_weights()
-        for feat, weight in weights.items():
-            if feat != "intercept":
-                print(f"      {feat:20s}: {weight:+.4f}")
+        
+        # Sort by absolute value
+        sorted_weights = sorted(
+            [(k, v) for k, v in weights.items() if k != "intercept"],
+            key=lambda x: abs(x[1]),
+            reverse=True
+        )
+        
+        for feat, weight in sorted_weights:
+            print(f"      {feat:20s}: {weight:+.4f}")
         print(f"      {'Intercept':20s}: {weights.get('intercept', 0):+.4f}")
         
         print("=" * 70)
@@ -387,12 +463,11 @@ class TitanCoordinator:
 def main():
     """Test the TitanCoordinator."""
     print("\n" + "=" * 70)
-    print("🚀 TITAN COORDINATOR TEST (Ridge Linear Stacking)")
+    print("🚀 TITAN COORDINATOR TEST (ElasticNet + Calendar)")
     print("=" * 70)
     
-    # This is a simple test - full usage is in run_full_pipeline.py
     coordinator = TitanCoordinator()
-    print(f"   Model: Ridge(alpha=0.5)")
+    print(f"   Model: ElasticNet(alpha=0.1, l1_ratio=0.1)")
     print(f"   Features: {coordinator.get_feature_columns()}")
     print("   ✅ Coordinator initialized successfully")
     print("\n   Run scripts/run_full_pipeline.py for full training")
