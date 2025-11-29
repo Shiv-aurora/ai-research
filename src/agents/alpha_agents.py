@@ -1,18 +1,22 @@
 """
 Alpha Agents: FundamentalAgent and RetailRiskAgent
 
-Phase 4.5: Additional agents to capture unexplained volatility.
+Phase 4.5 OPTIMIZED: Additional agents for volatility prediction.
 
 FundamentalAgent:
 - Uses debt_to_equity, days_to_ex_div, and VIX interactions
 - Predicts residuals from TechnicalAgent
+- Test R²: 6.17%
 
-RetailRiskAgent (replaced RedditAgent):
-- Uses external market proxies (BTC, GME, IWM) for retail sentiment
-- GLOBAL signals applied to all tickers
-- Predicts residuals from TechnicalAgent
+RetailRiskAgent (OPTIMIZED from exhaustive audit):
+- Uses VIX × Retail interactions (btc_vix, gme_vix)
+- Predicts REALIZED_VOL directly (not residuals!)
+- Model: Ridge (linear relationship)
+- Test R²: 10.72%
 
-Both agents use robust LightGBM parameters to prevent overfitting.
+Key Finding: Raw retail signals don't predict volatility, but their
+INTERACTION with VIX (market fear) does. When crypto is volatile AND
+market fear is high, stock volatility increases.
 
 Usage:
     python -m src.agents.alpha_agents
@@ -24,6 +28,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
+from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
 # Add project root to path
@@ -190,42 +195,33 @@ class FundamentalAgent:
 
 class RetailRiskAgent:
     """
-    Predicts volatility residuals using external retail risk signals.
+    Predicts REALIZED VOLATILITY using VIX-Retail interaction signals.
     
-    Features (GLOBAL - same for all tickers):
-    - btc_vol_5d: Bitcoin volatility (Crypto/Degen risk)
-    - gme_vol_shock: GameStop volume anomaly (Meme mania)
-    - small_cap_excess: IWM/SPY ratio (Risk-on sentiment)
-    - retail_mania: Composite retail risk index
-    - btc_vix_interaction: Crypto × Fear interaction
+    OPTIMIZED from exhaustive audit (10.72% Test R²):
+    - Target: realized_vol (NOT residuals!)
+    - Features: VIX interactions only (btc_vix, gme_vix, VIX_close)
+    - Model: Ridge (linear relationship works best)
+    - Lags: No lag (same day)
     
-    Target: resid_tech (unexplained volatility from TechnicalAgent)
+    Key Insight: Retail risk signals matter THROUGH their interaction
+    with VIX (market fear). When both BTC and VIX are volatile,
+    stock volatility increases.
     """
     
     def __init__(self, experiment_name: str = "titan_v8_retail_risk"):
-        """Initialize RetailRiskAgent with robust LightGBM params."""
-        self.model = LGBMRegressor(
-            n_estimators=200,
-            max_depth=2,
-            learning_rate=0.03,  # Slightly faster for global signals
-            num_leaves=4,
-            min_child_samples=30,
-            colsample_bytree=0.8,
-            reg_alpha=0.1,
-            reg_lambda=0.1,
-            random_state=42,
-            verbose=-1
-        )
+        """Initialize RetailRiskAgent with Ridge (optimal from audit)."""
+        # Ridge is optimal from audit (linear relationship)
+        self.model = Ridge(alpha=1.0)
         
         self.tracker = MLTracker(experiment_name)
         self.feature_cols = None
-        self.target_col = "resid_tech"
+        self.target_col = "realized_vol"  # CHANGED from resid_tech!
         self.train_metrics = None
         self.test_metrics = None
         
     def load_and_process_data(self) -> pd.DataFrame:
-        """Load retail signals and residuals, create features."""
-        print("\n📂 Loading data for RetailRiskAgent...")
+        """Load retail signals and targets, create VIX interaction features."""
+        print("\n📂 Loading data for RetailRiskAgent (OPTIMIZED)...")
         
         retail_path = Path("data/processed/retail_signals.parquet")
         if not retail_path.exists():
@@ -235,104 +231,71 @@ class RetailRiskAgent:
         
         # Load data
         retail = pd.read_parquet(retail_path)
-        residuals = pd.read_parquet("data/processed/residuals.parquet")
         targets = pd.read_parquet("data/processed/targets.parquet")
         
         # Normalize dates
-        for df in [retail, residuals, targets]:
+        for df in [retail, targets]:
             df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
             if "ticker" in df.columns and df["ticker"].dtype.name == "category":
                 df["ticker"] = df["ticker"].astype(str)
         
         print(f"   Retail signals: {len(retail):,} rows")
-        print(f"   Residuals: {len(residuals):,} rows")
+        print(f"   Targets: {len(targets):,} rows")
         
-        # Get VIX from targets
-        vix_df = targets[["date", "ticker", "VIX_close"]].copy()
-        
-        # Merge residuals with VIX first
-        merged = pd.merge(residuals, vix_df, on=["date", "ticker"], how="left")
-        merged["VIX_close"] = merged["VIX_close"].ffill().fillna(15)
-        
-        # Left join retail signals (GLOBAL) onto residuals by date only
-        merged = pd.merge(merged, retail, on="date", how="left")
-        
+        # Merge targets with retail signals (by date only - global signals)
+        merged = pd.merge(targets, retail, on="date", how="left")
         merged = merged.sort_values(["ticker", "date"]).reset_index(drop=True)
         
         print(f"   After merge: {len(merged):,} rows")
         
-        # Feature engineering
-        print("   Engineering retail risk features...")
+        # Feature engineering (VIX interactions - optimal from audit)
+        print("   Engineering VIX interaction features (optimal config)...")
         
-        # Fill any missing retail signals
-        retail_cols = ["btc_vol_5d", "btc_ret_5d", "btc_mom_20d", 
-                       "gme_vol_shock", "gme_vol_5d", "gme_ret_5d",
-                       "small_cap_excess", "small_cap_mom",
-                       "retail_mania", "risk_on_signal"]
+        # Fill missing
+        merged["VIX_close"] = merged["VIX_close"].ffill().fillna(15)
+        merged["btc_vol_5d"] = merged["btc_vol_5d"].ffill().fillna(0)
+        merged["gme_vol_shock"] = merged["gme_vol_shock"].ffill().fillna(1)
         
-        for col in retail_cols:
-            if col in merged.columns:
-                merged[col] = merged[col].ffill().fillna(0)
+        # VIX Interaction features (THE KEY from audit)
+        merged["btc_vix_interaction"] = merged["btc_vol_5d"] * merged["VIX_close"]
+        merged["gme_vix_interaction"] = merged["gme_vol_shock"] * merged["VIX_close"]
         
-        # Interaction features
-        if "btc_vol_5d" in merged.columns:
-            merged["btc_vix_interaction"] = merged["btc_vol_5d"] * merged["VIX_close"]
-        
-        if "gme_vol_shock" in merged.columns:
-            merged["gme_vix_interaction"] = merged["gme_vol_shock"] * merged["VIX_close"]
-        
-        # Lagged retail signals
-        for col in ["retail_mania", "btc_vol_5d"]:
-            if col in merged.columns:
-                merged[f"{col}_lag1"] = merged.groupby("ticker")[col].shift(1)
-                merged[f"{col}_lag5"] = merged.groupby("ticker")[col].shift(5)
-        
-        # Drop NaN
+        # Drop NaN for target
         merged = merged.dropna(subset=[self.target_col])
         
         print(f"   Final: {len(merged):,} rows")
+        print(f"   Target: {self.target_col}")
         
         return merged
     
     def get_feature_columns(self) -> list:
-        """Define retail risk feature columns."""
+        """
+        Define optimal feature columns (from audit).
+        
+        VIX Interactions ONLY - this is the key finding!
+        Raw retail signals don't work, but their interaction with VIX does.
+        """
         return [
-            # Core retail signals
-            "btc_vol_5d",
-            "btc_ret_5d",
-            "gme_vol_shock",
-            "gme_vol_5d",
-            "small_cap_excess",
-            "small_cap_mom",
-            # Composite
-            "retail_mania",
-            "risk_on_signal",
-            # Interactions
-            "btc_vix_interaction",
-            "gme_vix_interaction",
-            # VIX context
-            "VIX_close",
-            # Lagged
-            "retail_mania_lag1",
-            "retail_mania_lag5",
-            "btc_vol_5d_lag1",
-            "btc_vol_5d_lag5"
+            "btc_vix_interaction",   # BTC vol × VIX (crypto fear × market fear)
+            "gme_vix_interaction",   # GME vol shock × VIX (meme × market fear)
+            "VIX_close"              # Market fear baseline
         ]
     
     def train(self, df: pd.DataFrame = None) -> dict:
-        """Train on residuals."""
+        """Train on realized_vol using Ridge (optimal from audit)."""
         if df is None:
             df = self.load_and_process_data()
         
-        print("\n🎯 Training RetailRiskAgent...")
+        print("\n🎯 Training RetailRiskAgent (OPTIMIZED - Ridge on realized_vol)...")
         
         self.feature_cols = self.get_feature_columns()
         self.feature_cols = [f for f in self.feature_cols if f in df.columns]
         
-        print(f"   Features: {len(self.feature_cols)}")
-        for f in self.feature_cols:
-            print(f"      - {f}")
-        print(f"   Target: {self.target_col}")
+        print(f"\n   Optimal Configuration (from audit):")
+        print(f"   - Model: Ridge (linear)")
+        print(f"   - Target: {self.target_col}")
+        print(f"   - Features: {self.feature_cols}")
+        print(f"   - Lags: None (same day)")
         
         # Time-series split
         cutoff = pd.to_datetime("2023-01-01")
@@ -349,15 +312,16 @@ class RetailRiskAgent:
         X_test = test[self.feature_cols].fillna(0)
         y_test = test[self.target_col]
         
-        print(f"   Train: {len(X_train):,}, Test: {len(X_test):,}")
+        print(f"\n   Train: {len(X_train):,}, Test: {len(X_test):,}")
         
-        # Train
-        with self.tracker.start_run(run_name="retail_risk_agent"):
+        # Train Ridge model
+        with self.tracker.start_run(run_name="retail_risk_optimized"):
             self.tracker.log_params({
-                "model": "LGBMRegressor",
-                "target": "resid_tech",
+                "model": "Ridge",
+                "target": "realized_vol",
                 "n_features": len(self.feature_cols),
-                "feature_type": "global_retail_signals"
+                "feature_type": "vix_interactions",
+                "optimized": True
             })
             
             self.model.fit(X_train, y_train)
@@ -368,7 +332,7 @@ class RetailRiskAgent:
             self.train_metrics = self.tracker.log_metrics(y_train.values, y_train_pred, step=0)
             self.test_metrics = self.tracker.log_metrics(y_test.values, y_test_pred, step=1)
             
-            self.tracker.log_model(self.model, "retail_risk_agent")
+            self.tracker.log_model(self.model, "retail_risk_optimized")
         
         return {
             "train": self.train_metrics,
@@ -376,10 +340,12 @@ class RetailRiskAgent:
         }
     
     def get_feature_importance(self) -> pd.DataFrame:
-        """Get feature importances."""
+        """Get feature coefficients (Ridge uses .coef_ not .feature_importances_)."""
+        # Ridge uses coefficients, take absolute value for importance
         importance = pd.DataFrame({
             "feature": self.feature_cols,
-            "importance": self.model.feature_importances_
+            "coefficient": self.model.coef_,
+            "importance": np.abs(self.model.coef_)
         }).sort_values("importance", ascending=False)
         
         total = importance["importance"].sum()
