@@ -2,7 +2,9 @@
 SNAP Feature Engineering Pipeline for Titan V8
 Phase 1.2: Transform News Text into Volatility Signals
 
-Optimized for Apple M1 Max (MPS acceleration)
+Two modes:
+- LITE: TF-IDF + TruncatedSVD (fast, no GPU needed)
+- FULL: Sentence-Transformers (requires more memory)
 
 Features generated:
 - shock_index: Keyword-based severity score
@@ -13,22 +15,26 @@ Features generated:
 
 Usage:
     python -m src.pipeline.process_news
+    python -m src.pipeline.process_news --mode full  # Use sentence-transformers
 """
 
 import os
+import sys
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import torch
 import yaml
-from sentence_transformers import SentenceTransformer
-from sklearn.decomposition import IncrementalPCA
+from sklearn.decomposition import TruncatedSVD
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+# Check if we should use sentence-transformers (full mode)
+USE_SENTENCE_TRANSFORMERS = "--mode" in sys.argv and "full" in sys.argv
 
 
 # =============================================================================
@@ -41,22 +47,16 @@ def load_config(config_path: str = "conf/base/config.yaml") -> dict:
         return yaml.safe_load(f)
 
 
-def get_device() -> str:
+def get_vectorization_mode() -> str:
     """
-    Get optimal device for model inference.
-    
-    Note: MPS (Apple Silicon) can cause bus errors with sentence-transformers.
-    We use CPU for stability. For large-scale production, consider CUDA.
+    Get vectorization mode based on command line args.
     
     Returns:
-        Device string for PyTorch
+        "lite" for TF-IDF, "full" for sentence-transformers
     """
-    # MPS has compatibility issues with sentence-transformers
-    # Falling back to CPU for stability
-    if torch.cuda.is_available():
-        return "cuda"
-    # CPU is more stable for sentence-transformers on M1
-    return "cpu"
+    if USE_SENTENCE_TRANSFORMERS:
+        return "full"
+    return "lite"
 
 
 # =============================================================================
@@ -114,45 +114,70 @@ def calculate_shock_score(text: str) -> float:
 # STEP B: VECTORIZATION (The "Theme" Vector)
 # =============================================================================
 
-def load_embedding_model(device: str) -> SentenceTransformer:
+def generate_tfidf_embeddings(texts: list, n_components: int = 384) -> np.ndarray:
     """
-    Load sentence transformer model optimized for device.
+    Generate TF-IDF embeddings with SVD reduction (LITE mode).
+    
+    This is a lightweight alternative to sentence-transformers that
+    doesn't require GPU or heavy ML models.
     
     Args:
-        device: "mps", "cuda", or "cpu"
+        texts: List of news texts
+        n_components: Output dimension (matches MiniLM-L6 for compatibility)
     
     Returns:
-        SentenceTransformer model
+        Numpy array of embeddings (n_texts, n_components)
     """
+    print(f"  🔢 Generating TF-IDF embeddings for {len(texts):,} texts...")
+    
+    # Clean texts
+    texts = [str(t) if t else "" for t in texts]
+    
+    # TF-IDF vectorization
+    print("     Step 1/2: TF-IDF vectorization...")
+    tfidf = TfidfVectorizer(
+        max_features=5000,
+        stop_words='english',
+        ngram_range=(1, 2),
+        min_df=2,
+        max_df=0.95
+    )
+    tfidf_matrix = tfidf.fit_transform(texts)
+    print(f"     TF-IDF shape: {tfidf_matrix.shape}")
+    
+    # Reduce dimensions with TruncatedSVD
+    print(f"     Step 2/2: SVD reduction to {n_components} dims...")
+    n_comp = min(n_components, tfidf_matrix.shape[1] - 1, tfidf_matrix.shape[0] - 1)
+    svd = TruncatedSVD(n_components=n_comp, random_state=42)
+    embeddings = svd.fit_transform(tfidf_matrix)
+    
+    print(f"     Explained variance: {svd.explained_variance_ratio_.sum():.1%}")
+    
+    return embeddings
+
+
+def generate_sentence_embeddings(texts: list, batch_size: int = 256) -> np.ndarray:
+    """
+    Generate embeddings using sentence-transformers (FULL mode).
+    
+    Requires more memory but produces higher quality embeddings.
+    
+    Args:
+        texts: List of news texts
+        batch_size: Batch size for encoding
+    
+    Returns:
+        Numpy array of embeddings
+    """
+    import torch
+    from sentence_transformers import SentenceTransformer
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"  📦 Loading all-MiniLM-L6-v2 on {device.upper()}...")
     
     model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
     
-    return model
-
-
-def generate_embeddings(
-    model: SentenceTransformer,
-    texts: list,
-    device: str,
-    batch_size: int = 256
-) -> np.ndarray:
-    """
-    Generate embeddings for news texts with MPS optimization.
-    
-    Args:
-        model: SentenceTransformer model
-        texts: List of news texts
-        device: Device to use
-        batch_size: Batch size (256 works well on M1 Max)
-    
-    Returns:
-        Numpy array of embeddings (n_texts, embedding_dim)
-    """
     print(f"  🔢 Generating embeddings for {len(texts):,} texts...")
-    print(f"     Device: {device.upper()}, Batch size: {batch_size}")
-    
-    # Convert to list and handle None values
     texts = [str(t) if t else "" for t in texts]
     
     embeddings = model.encode(
@@ -164,6 +189,23 @@ def generate_embeddings(
     )
     
     return embeddings
+
+
+def generate_embeddings(texts: list, mode: str = "lite") -> np.ndarray:
+    """
+    Generate text embeddings using specified mode.
+    
+    Args:
+        texts: List of news texts
+        mode: "lite" (TF-IDF) or "full" (sentence-transformers)
+    
+    Returns:
+        Numpy array of embeddings
+    """
+    if mode == "full":
+        return generate_sentence_embeddings(texts)
+    else:
+        return generate_tfidf_embeddings(texts)
 
 
 # =============================================================================
@@ -193,6 +235,8 @@ def fit_pca_with_antileakage(
     Returns:
         Tuple of (pca_model, transformed_embeddings)
     """
+    from sklearn.decomposition import IncrementalPCA
+    
     print(f"\n  📉 Fitting PCA with anti-leakage (cutoff: {train_cutoff})...")
     
     # Get train mask
@@ -204,6 +248,12 @@ def fit_pca_with_antileakage(
     
     print(f"     Train samples: {train_count:,} ({100*train_count/total_count:.1f}%)")
     print(f"     Test samples:  {total_count - train_count:,} ({100*(total_count-train_count)/total_count:.1f}%)")
+    
+    # Adjust n_components if needed
+    max_components = min(n_components, embeddings.shape[1], train_count - 1)
+    if max_components < n_components:
+        print(f"     ⚠️ Adjusting n_components from {n_components} to {max_components}")
+        n_components = max_components
     
     # Extract train embeddings
     train_embeddings = embeddings[train_mask]
@@ -355,16 +405,15 @@ def main():
     print("=" * 60)
     
     # =========================================
-    # Device Selection (M1 Max Optimization)
+    # Mode Selection
     # =========================================
-    device = get_device()
-    print(f"\n🖥️  DEVICE: {device.upper()}")
-    if device == "cuda":
-        print("   ✓ NVIDIA CUDA acceleration enabled!")
+    mode = get_vectorization_mode()
+    print(f"\n🖥️  MODE: {mode.upper()}")
+    if mode == "full":
+        print("   ✓ Using sentence-transformers (high quality)")
     else:
-        print("   ✓ Running on CPU (stable for sentence-transformers)")
-        if torch.backends.mps.is_available():
-            print("   ℹ️  MPS available but disabled (bus error workaround)")
+        print("   ✓ Using TF-IDF + SVD (fast, lightweight)")
+        print("   ℹ️  Run with --mode full for sentence-transformers")
     
     # Load configuration
     config = load_config()
@@ -403,13 +452,7 @@ def main():
     print("📌 STEP B: Vectorization (Embeddings)")
     print("-" * 50)
     
-    model = load_embedding_model(device)
-    embeddings = generate_embeddings(
-        model, 
-        df["raw_text"].tolist(), 
-        device=device,
-        batch_size=256
-    )
+    embeddings = generate_embeddings(df["raw_text"].tolist(), mode=mode)
     
     print(f"   ✓ Embedding shape: {embeddings.shape}")
     
@@ -468,7 +511,7 @@ def main():
     print("\n" + "=" * 60)
     print("📊 SNAP FEATURE ENGINEERING SUMMARY")
     print("=" * 60)
-    print(f"Device used: {device.upper()}")
+    print(f"Mode used: {mode.upper()}")
     print(f"Input rows:  {len(df):,}")
     print(f"Output rows: {len(daily_df):,}")
     print(f"Output shape: {daily_df.shape}")
