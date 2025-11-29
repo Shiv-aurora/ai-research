@@ -1,14 +1,15 @@
 """
-Alpha Agents: FundamentalAgent and RedditAgent
+Alpha Agents: FundamentalAgent and RetailRiskAgent
 
-Phase 4: Additional agents to capture unexplained volatility.
+Phase 4.5: Additional agents to capture unexplained volatility.
 
 FundamentalAgent:
 - Uses debt_to_equity, days_to_ex_div, and VIX interactions
 - Predicts residuals from TechnicalAgent
 
-RedditAgent:
-- Uses volume/price anomalies as retail hype proxy
+RetailRiskAgent (replaced RedditAgent):
+- Uses external market proxies (BTC, GME, IWM) for retail sentiment
+- GLOBAL signals applied to all tickers
 - Predicts residuals from TechnicalAgent
 
 Both agents use robust LightGBM parameters to prevent overfitting.
@@ -187,24 +188,26 @@ class FundamentalAgent:
         return importance
 
 
-class RedditAgent:
+class RetailRiskAgent:
     """
-    Predicts volatility residuals using retail hype proxy.
+    Predicts volatility residuals using external retail risk signals.
     
-    Features:
-    - volume_shock: Volume anomaly
-    - hype_signal_roll3: Smoothed hype signal
-    - hype_zscore: Normalized hype
+    Features (GLOBAL - same for all tickers):
+    - btc_vol_5d: Bitcoin volatility (Crypto/Degen risk)
+    - gme_vol_shock: GameStop volume anomaly (Meme mania)
+    - small_cap_excess: IWM/SPY ratio (Risk-on sentiment)
+    - retail_mania: Composite retail risk index
+    - btc_vix_interaction: Crypto × Fear interaction
     
     Target: resid_tech (unexplained volatility from TechnicalAgent)
     """
     
-    def __init__(self, experiment_name: str = "titan_v8_reddit"):
-        """Initialize RedditAgent with robust LightGBM params."""
+    def __init__(self, experiment_name: str = "titan_v8_retail_risk"):
+        """Initialize RetailRiskAgent with robust LightGBM params."""
         self.model = LGBMRegressor(
             n_estimators=200,
             max_depth=2,
-            learning_rate=0.02,
+            learning_rate=0.03,  # Slightly faster for global signals
             num_leaves=4,
             min_child_samples=30,
             colsample_bytree=0.8,
@@ -221,53 +224,99 @@ class RedditAgent:
         self.test_metrics = None
         
     def load_and_process_data(self) -> pd.DataFrame:
-        """Load reddit proxy and residuals."""
-        print("\n📂 Loading data for RedditAgent...")
+        """Load retail signals and residuals, create features."""
+        print("\n📂 Loading data for RetailRiskAgent...")
         
-        reddit_path = Path("data/processed/reddit_proxy.parquet")
-        if not reddit_path.exists():
+        retail_path = Path("data/processed/retail_signals.parquet")
+        if not retail_path.exists():
             raise FileNotFoundError(
-                "Reddit proxy not found! Run create_reddit_proxy first."
+                "Retail signals not found! Run ingest_retail first."
             )
         
-        reddit = pd.read_parquet(reddit_path)
+        # Load data
+        retail = pd.read_parquet(retail_path)
         residuals = pd.read_parquet("data/processed/residuals.parquet")
+        targets = pd.read_parquet("data/processed/targets.parquet")
         
         # Normalize dates
-        for df in [reddit, residuals]:
+        for df in [retail, residuals, targets]:
             df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
-            if df["ticker"].dtype.name == "category":
+            if "ticker" in df.columns and df["ticker"].dtype.name == "category":
                 df["ticker"] = df["ticker"].astype(str)
         
-        # Merge
-        merged = pd.merge(residuals, reddit, on=["date", "ticker"], how="inner")
+        print(f"   Retail signals: {len(retail):,} rows")
+        print(f"   Residuals: {len(residuals):,} rows")
+        
+        # Get VIX from targets
+        vix_df = targets[["date", "ticker", "VIX_close"]].copy()
+        
+        # Merge residuals with VIX first
+        merged = pd.merge(residuals, vix_df, on=["date", "ticker"], how="left")
+        merged["VIX_close"] = merged["VIX_close"].ffill().fillna(15)
+        
+        # Left join retail signals (GLOBAL) onto residuals by date only
+        merged = pd.merge(merged, retail, on="date", how="left")
+        
         merged = merged.sort_values(["ticker", "date"]).reset_index(drop=True)
         
-        print(f"   Merged: {len(merged):,} rows")
+        print(f"   After merge: {len(merged):,} rows")
         
-        # Add lagged hype features
-        merged["hype_lag1"] = merged.groupby("ticker")["hype_signal_roll3"].shift(1)
-        merged["hype_lag3"] = merged.groupby("ticker")["hype_signal_roll3"].shift(3)
-        merged["volume_shock_lag1"] = merged.groupby("ticker")["volume_shock"].shift(1)
+        # Feature engineering
+        print("   Engineering retail risk features...")
         
-        merged = merged.dropna()
+        # Fill any missing retail signals
+        retail_cols = ["btc_vol_5d", "btc_ret_5d", "btc_mom_20d", 
+                       "gme_vol_shock", "gme_vol_5d", "gme_ret_5d",
+                       "small_cap_excess", "small_cap_mom",
+                       "retail_mania", "risk_on_signal"]
+        
+        for col in retail_cols:
+            if col in merged.columns:
+                merged[col] = merged[col].ffill().fillna(0)
+        
+        # Interaction features
+        if "btc_vol_5d" in merged.columns:
+            merged["btc_vix_interaction"] = merged["btc_vol_5d"] * merged["VIX_close"]
+        
+        if "gme_vol_shock" in merged.columns:
+            merged["gme_vix_interaction"] = merged["gme_vol_shock"] * merged["VIX_close"]
+        
+        # Lagged retail signals
+        for col in ["retail_mania", "btc_vol_5d"]:
+            if col in merged.columns:
+                merged[f"{col}_lag1"] = merged.groupby("ticker")[col].shift(1)
+                merged[f"{col}_lag5"] = merged.groupby("ticker")[col].shift(5)
+        
+        # Drop NaN
+        merged = merged.dropna(subset=[self.target_col])
         
         print(f"   Final: {len(merged):,} rows")
         
         return merged
     
     def get_feature_columns(self) -> list:
-        """Define reddit proxy feature columns."""
+        """Define retail risk feature columns."""
         return [
-            "volume_shock",
-            "volume_shock_roll3",
-            "volume_shock_lag1",
-            "hype_signal_roll3",
-            "hype_signal_roll7",
-            "hype_zscore",
-            "hype_lag1",
-            "hype_lag3",
-            "price_acceleration"
+            # Core retail signals
+            "btc_vol_5d",
+            "btc_ret_5d",
+            "gme_vol_shock",
+            "gme_vol_5d",
+            "small_cap_excess",
+            "small_cap_mom",
+            # Composite
+            "retail_mania",
+            "risk_on_signal",
+            # Interactions
+            "btc_vix_interaction",
+            "gme_vix_interaction",
+            # VIX context
+            "VIX_close",
+            # Lagged
+            "retail_mania_lag1",
+            "retail_mania_lag5",
+            "btc_vol_5d_lag1",
+            "btc_vol_5d_lag5"
         ]
     
     def train(self, df: pd.DataFrame = None) -> dict:
@@ -275,12 +324,14 @@ class RedditAgent:
         if df is None:
             df = self.load_and_process_data()
         
-        print("\n🎯 Training RedditAgent...")
+        print("\n🎯 Training RetailRiskAgent...")
         
         self.feature_cols = self.get_feature_columns()
         self.feature_cols = [f for f in self.feature_cols if f in df.columns]
         
-        print(f"   Features: {self.feature_cols}")
+        print(f"   Features: {len(self.feature_cols)}")
+        for f in self.feature_cols:
+            print(f"      - {f}")
         print(f"   Target: {self.target_col}")
         
         # Time-series split
@@ -293,19 +344,20 @@ class RedditAgent:
             train = df.iloc[:split_idx]
             test = df.iloc[split_idx:]
         
-        X_train = train[self.feature_cols]
+        X_train = train[self.feature_cols].fillna(0)
         y_train = train[self.target_col]
-        X_test = test[self.feature_cols]
+        X_test = test[self.feature_cols].fillna(0)
         y_test = test[self.target_col]
         
         print(f"   Train: {len(X_train):,}, Test: {len(X_test):,}")
         
         # Train
-        with self.tracker.start_run(run_name="reddit_agent"):
+        with self.tracker.start_run(run_name="retail_risk_agent"):
             self.tracker.log_params({
                 "model": "LGBMRegressor",
                 "target": "resid_tech",
-                "n_features": len(self.feature_cols)
+                "n_features": len(self.feature_cols),
+                "feature_type": "global_retail_signals"
             })
             
             self.model.fit(X_train, y_train)
@@ -316,7 +368,7 @@ class RedditAgent:
             self.train_metrics = self.tracker.log_metrics(y_train.values, y_train_pred, step=0)
             self.test_metrics = self.tracker.log_metrics(y_test.values, y_test_pred, step=1)
             
-            self.tracker.log_model(self.model, "reddit_agent")
+            self.tracker.log_model(self.model, "retail_risk_agent")
         
         return {
             "train": self.train_metrics,
@@ -331,13 +383,20 @@ class RedditAgent:
         }).sort_values("importance", ascending=False)
         
         total = importance["importance"].sum()
-        importance["pct"] = (importance["importance"] / total * 100).round(1)
+        if total > 0:
+            importance["pct"] = (importance["importance"] / total * 100).round(1)
+        else:
+            importance["pct"] = 0.0
         
         return importance
 
 
+# Keep RedditAgent for backwards compatibility (deprecated)
+RedditAgent = RetailRiskAgent
+
+
 def main():
-    """Test both alpha agents."""
+    """Test alpha agents."""
     print("\n" + "=" * 65)
     print("🚀 ALPHA AGENTS TEST")
     print("=" * 65)
@@ -356,23 +415,23 @@ def main():
     print("\n   Top 3 Features:")
     print(fund_agent.get_feature_importance().head(3).to_string(index=False))
     
-    # Test RedditAgent
+    # Test RetailRiskAgent
     print("\n" + "-" * 65)
-    print("📊 REDDIT AGENT")
+    print("📊 RETAIL RISK AGENT")
     print("-" * 65)
     
     try:
-        reddit_agent = RedditAgent()
-        reddit_metrics = reddit_agent.train()
+        retail_agent = RetailRiskAgent()
+        retail_metrics = retail_agent.train()
         
-        print(f"\n   Train R²: {reddit_metrics['train']['R2']:.4f}")
-        print(f"   Test R²:  {reddit_metrics['test']['R2']:.4f}")
+        print(f"\n   Train R²: {retail_metrics['train']['R2']:.4f}")
+        print(f"   Test R²:  {retail_metrics['test']['R2']:.4f}")
         
         print("\n   Top 3 Features:")
-        print(reddit_agent.get_feature_importance().head(3).to_string(index=False))
+        print(retail_agent.get_feature_importance().head(3).to_string(index=False))
     except FileNotFoundError as e:
         print(f"   ⚠️ {e}")
-        print("   Run: python -m src.pipeline.create_reddit_proxy first")
+        print("   Run: python -m src.pipeline.ingest_retail first")
     
     print("\n" + "=" * 65)
     print("✅ ALPHA AGENTS COMPLETE")
@@ -381,4 +440,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
