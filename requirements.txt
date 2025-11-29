@@ -21,7 +21,7 @@ polygon-api-client
 pyyaml
 
 # NLP / Embeddings
-sentence-transformers
+sentence-transformers==2.7.0
 
 # Volatility Modeling
 arch
