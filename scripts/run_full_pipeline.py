@@ -1,14 +1,15 @@
 """
-Titan V8 Full Pipeline: The Final Full-Scale Run
+Titan V8 Full Pipeline: The Final Full-Scale Run (Attempt 2)
 
 Phase 5: Orchestrates the entire training loop on the full 7-year dataset.
+Uses Ridge Linear Stacking to prevent overfitting.
 
 Steps:
-A. Config Update - Set full ticker list and date range
-B. Data Engine - Ingest all data (price, news, retail signals)
+A. Config Update - Force full ticker list and date range
+B. Data Engine - Force fresh data ingestion
 C. Train Ensemble - Train all agents
-D. Train Coordinator - Fuse predictions with XGBoost
-E. Money Shot - Print final comparison table
+D. Train Coordinator - Ridge Linear Stacking
+E. Money Shot - Print final comparison table with ensemble weights
 
 Usage:
     python scripts/run_full_pipeline.py
@@ -21,6 +22,7 @@ Options:
 import sys
 import os
 import argparse
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -35,97 +37,93 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import warnings
 warnings.filterwarnings('ignore')
 
+# Full dataset configuration
+FULL_CONFIG = {
+    "project_name": "titan_v8",
+    "seed": 42,
+    "data": {
+        "tickers": [
+            'SPY', 'QQQ', 'IWM', 'AAPL', 'NVDA', 'MSFT',
+            'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'JPM'
+        ],
+        "start_date": "2018-01-01",
+        "end_date": "2024-12-31",
+        "raw_path": "data/raw",
+        "processed_path": "data/processed"
+    },
+    "mlflow": {
+        "experiment_name": "titan_v8_full"
+    }
+}
+
 
 def update_config():
-    """Step A: Update config with full dataset parameters."""
+    """Step A: Force update config with full dataset parameters."""
     print("\n" + "=" * 70)
-    print("📋 STEP A: CONFIG UPDATE")
+    print("📋 STEP A: CONFIG UPDATE (FORCED)")
     print("=" * 70)
     
     config_path = Path("conf/base/config.yaml")
     
-    # Full dataset configuration
-    full_config = {
-        "project_name": "titan_v8",
-        "seed": 42,
-        "data": {
-            "tickers": [
-                'SPY', 'QQQ', 'IWM', 'AAPL', 'NVDA', 'MSFT',
-                'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'JPM'
-            ],
-            "start_date": "2018-01-01",
-            "end_date": "2024-12-31",
-            "raw_path": "data/raw",
-            "processed_path": "data/processed"
-        },
-        "mlflow": {
-            "experiment_name": "titan_v8_full"
-        }
-    }
-    
-    # Write config
+    # Force write config
     with open(config_path, 'w') as f:
-        yaml.dump(full_config, f, default_flow_style=False)
+        yaml.dump(FULL_CONFIG, f, default_flow_style=False)
     
-    print(f"   ✓ Tickers: {len(full_config['data']['tickers'])} ({full_config['data']['tickers'][:3]}...)")
-    print(f"   ✓ Date range: {full_config['data']['start_date']} to {full_config['data']['end_date']}")
+    print(f"   ✓ Tickers: {len(FULL_CONFIG['data']['tickers'])} tickers")
+    print(f"   ✓ List: {FULL_CONFIG['data']['tickers']}")
+    print(f"   ✓ Date range: {FULL_CONFIG['data']['start_date']} to {FULL_CONFIG['data']['end_date']}")
     print(f"   ✓ Config saved to: {config_path}")
     
-    return full_config
+    return FULL_CONFIG
 
 
-def check_data_freshness():
-    """Check if data needs to be re-ingested."""
-    targets_path = Path("data/processed/targets.parquet")
-    
-    if not targets_path.exists():
-        return False, "targets.parquet not found"
-    
-    size_mb = targets_path.stat().st_size / (1024 * 1024)
-    
-    if size_mb < 1:  # Less than 1MB is probably incomplete
-        return False, f"targets.parquet too small ({size_mb:.2f} MB)"
-    
-    # Check row count
-    df = pd.read_parquet(targets_path)
-    n_tickers = df["ticker"].nunique() if "ticker" in df.columns else 0
-    
-    if n_tickers < 10:  # Expect at least 10 tickers for full run
-        return False, f"Only {n_tickers} tickers in data"
-    
-    return True, f"Data OK: {len(df):,} rows, {n_tickers} tickers, {size_mb:.2f} MB"
-
-
-def run_data_engine(skip_ingest=False):
-    """Step B: Run the data ingestion pipeline."""
+def force_fresh_ingestion():
+    """Force delete existing data and run fresh ingestion."""
     print("\n" + "=" * 70)
-    print("📊 STEP B: DATA ENGINE")
+    print("📊 STEP B: DATA ENGINE (FORCED FRESH)")
     print("=" * 70)
     
-    if skip_ingest:
-        print("   ⏭️ Skipping ingestion (--skip-ingest flag)")
-        data_ok, msg = check_data_freshness()
-        print(f"   {msg}")
-        return data_ok
+    # Delete existing processed data
+    targets_path = Path("data/processed/targets.parquet")
+    if targets_path.exists():
+        print(f"   🗑️ Deleting {targets_path}")
+        targets_path.unlink()
     
-    # Check if we need fresh data
-    data_ok, msg = check_data_freshness()
-    print(f"   Data check: {msg}")
+    residuals_path = Path("data/processed/residuals.parquet")
+    if residuals_path.exists():
+        print(f"   🗑️ Deleting {residuals_path}")
+        residuals_path.unlink()
     
-    if not data_ok:
-        print("\n   📥 Running full data ingestion...")
-        print("   ⚠️ This may take 10-15 minutes for 7 years of data")
-        
-        # Run ingest pipeline
-        try:
-            from src.pipeline.ingest import fetch_market_data
-            fetch_market_data()
-            print("   ✓ Market data ingested")
-        except Exception as e:
-            print(f"   ⚠️ Market data ingestion error: {e}")
+    # Run fresh ingestion
+    print("\n   📥 Running FULL market data ingestion...")
+    print("   ⚠️ This may take 15-30 minutes for 12 tickers × 7 years")
+    
+    try:
+        from src.pipeline.ingest import fetch_market_data
+        fetch_market_data()
+        print("   ✓ Market data ingested successfully")
+    except Exception as e:
+        print(f"   ❌ Market data ingestion error: {e}")
+        return False
+    
+    # Check if data is valid
+    if targets_path.exists():
+        df = pd.read_parquet(targets_path)
+        print(f"\n   📊 Data Check:")
+        print(f"      Rows: {len(df):,}")
+        print(f"      Tickers: {df['ticker'].nunique()}")
+        print(f"      Size: {targets_path.stat().st_size / (1024*1024):.2f} MB")
+        return True
+    else:
+        print("   ❌ targets.parquet not created!")
+        return False
+
+
+def run_news_pipeline():
+    """Run news ingestion and processing."""
+    print("\n   📰 Running news pipeline...")
     
     # Ingest news
-    print("\n   📰 Ingesting news data...")
     try:
         from src.pipeline.ingest_news import ingest_all_news
         ingest_all_news()
@@ -134,33 +132,24 @@ def run_data_engine(skip_ingest=False):
         print(f"   ⚠️ News ingestion error: {e}")
     
     # Process news
-    print("\n   🔧 Processing news features...")
     try:
         from src.pipeline.process_news import process_news_features
         process_news_features()
         print("   ✓ News features processed")
     except Exception as e:
         print(f"   ⚠️ News processing error: {e}")
+
+
+def run_retail_pipeline():
+    """Run retail signal ingestion."""
+    print("\n   💹 Running retail signals pipeline...")
     
-    # Ingest retail signals
-    print("\n   💹 Ingesting retail signals...")
     try:
         from src.pipeline.ingest_retail import fetch_retail_signals
         fetch_retail_signals()
         print("   ✓ Retail signals ingested")
     except Exception as e:
         print(f"   ⚠️ Retail signals error: {e}")
-    
-    # Create reddit proxy
-    print("\n   📊 Creating reddit proxy...")
-    try:
-        from src.pipeline.create_reddit_proxy import create_reddit_proxy
-        create_reddit_proxy()
-        print("   ✓ Reddit proxy created")
-    except Exception as e:
-        print(f"   ⚠️ Reddit proxy error: {e}")
-    
-    return True
 
 
 def train_technical_agent():
@@ -273,9 +262,9 @@ def train_ensemble(skip_ingest=False):
 
 
 def train_coordinator(agents):
-    """Step D: Train the TitanCoordinator."""
+    """Step D: Train the TitanCoordinator (Ridge Linear Stacking)."""
     print("\n" + "=" * 70)
-    print("🎯 STEP D: TRAIN TITAN COORDINATOR")
+    print("🎯 STEP D: TRAIN TITAN COORDINATOR (Ridge Linear Stacking)")
     print("=" * 70)
     
     from src.coordinator.fusion import TitanCoordinator
@@ -305,11 +294,11 @@ def train_coordinator(agents):
     # Train coordinator
     metrics = coordinator.train(df)
     
-    # Print feature importance
-    print("\n   📊 Coordinator Feature Importance:")
+    # Print feature importance (Ridge coefficients)
+    print("\n   📊 Ridge Coefficients (Ensemble Weights):")
     importance = coordinator.get_feature_importance()
-    for _, row in importance.head(5).iterrows():
-        print(f"      - {row['feature']}: {row['pct']:.1f}%")
+    for _, row in importance.iterrows():
+        print(f"      - {row['feature']}: {row['coefficient']:+.4f} ({row['pct']:.1f}%)")
     
     return coordinator, metrics
 
@@ -355,12 +344,14 @@ def main():
                         help="Skip data ingestion")
     parser.add_argument("--quick", action="store_true",
                         help="Quick run with current data")
+    parser.add_argument("--force", action="store_true",
+                        help="Force fresh data ingestion")
     args = parser.parse_args()
     
     start_time = datetime.now()
     
     print("\n" + "=" * 70)
-    print("🚀 TITAN V8: FULL-SCALE PIPELINE")
+    print("🚀 TITAN V8: FULL-SCALE PIPELINE (Linear Ensemble)")
     print(f"   Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70)
     
@@ -368,11 +359,35 @@ def main():
     config = update_config()
     
     # Step B: Data Engine
-    skip_ingest = args.skip_ingest or args.quick
-    run_data_engine(skip_ingest=skip_ingest)
+    if args.force:
+        success = force_fresh_ingestion()
+        if success:
+            run_news_pipeline()
+            run_retail_pipeline()
+    elif args.skip_ingest or args.quick:
+        print("\n" + "=" * 70)
+        print("📊 STEP B: DATA ENGINE (SKIPPED)")
+        print("=" * 70)
+        print("   ⏭️ Using existing data")
+        
+        targets_path = Path("data/processed/targets.parquet")
+        if targets_path.exists():
+            df = pd.read_parquet(targets_path)
+            print(f"   Rows: {len(df):,}")
+            print(f"   Tickers: {df['ticker'].nunique()}")
+    else:
+        # Check if we need to ingest
+        targets_path = Path("data/processed/targets.parquet")
+        if not targets_path.exists() or targets_path.stat().st_size < 1024 * 1024:
+            print("\n   ⚠️ Data missing or too small - running ingestion")
+            force_fresh_ingestion()
+            run_news_pipeline()
+            run_retail_pipeline()
+        else:
+            print("\n   ✓ Data exists, skipping ingestion")
     
     # Step C: Train Ensemble
-    agents = train_ensemble(skip_ingest=skip_ingest)
+    agents = train_ensemble()
     
     # Step D: Train Coordinator
     coordinator, metrics = train_coordinator(agents)
@@ -393,4 +408,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

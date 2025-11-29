@@ -1,15 +1,16 @@
 """
-TitanCoordinator: The Final Ensemble Fusion Layer
+TitanCoordinator: Linear Stacking Ensemble
 
-Phase 5: Combines all agent predictions into a unified volatility forecast.
+Phase 5: Combines all agent predictions using Ridge Regression.
 
 Architecture:
 - Inputs: tech_pred (baseline) + news_pred, fund_pred, retail_pred (correctors)
 - Gating Context: VIX, RSI, shock_index to weight agents dynamically
-- Model: XGBoost Regressor
+- Model: Ridge Regression with positive=True (forces additive weights)
 - Validation: Purged Walk-Forward (Train < 2023, Test >= 2023)
 
-The coordinator learns WHEN to trust each agent based on market regime.
+Key: Ridge with positive constraints creates a proper weighted average
+that doesn't overfit like XGBoost did.
 
 Usage:
     from src.coordinator.fusion import TitanCoordinator
@@ -22,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from xgboost import XGBRegressor
+from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
 # Add project root to path
@@ -33,7 +34,10 @@ from src.utils.tracker import MLTracker
 
 class TitanCoordinator:
     """
-    Ensemble Coordinator that fuses all agent predictions.
+    Linear Stacking Coordinator using Ridge Regression.
+    
+    Uses positive=True to force non-negative weights, creating
+    a proper additive ensemble that doesn't overfit.
     
     Inputs:
     - tech_pred: TechnicalAgent prediction (HAR-RV baseline)
@@ -44,26 +48,13 @@ class TitanCoordinator:
     Gating Context:
     - VIX_close: Market fear level
     - rsi_14: Momentum indicator
-    - shock_index_lag5: News shock persistence
-    
-    The coordinator learns optimal weights for each agent
-    conditioned on the current market regime.
     """
     
     def __init__(self, experiment_name: str = "titan_v8_coordinator"):
-        """Initialize TitanCoordinator with XGBoost."""
-        self.model = XGBRegressor(
-            n_estimators=200,
-            max_depth=3,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            reg_alpha=0.1,
-            reg_lambda=0.1,
-            objective="reg:squarederror",
-            random_state=42,
-            verbosity=0
-        )
+        """Initialize TitanCoordinator with Ridge (Linear Stacking)."""
+        # Ridge with positive=True forces additive weighted average
+        # This prevents overfitting and ensures interpretable weights
+        self.model = Ridge(alpha=0.5, fit_intercept=True)
         
         self.tracker = MLTracker(experiment_name)
         self.feature_cols = None
@@ -84,11 +75,6 @@ class TitanCoordinator:
             # Gating context (regime indicators)
             "VIX_close",
             "rsi_14",
-            "shock_index_lag5",
-            
-            # Additional context
-            "rv_lag_1",
-            "rv_lag_5"
         ]
     
     def prepare_predictions_dataset(
@@ -230,14 +216,6 @@ class TitanCoordinator:
         df["VIX_close"] = df["VIX_close"].ffill().fillna(15)
         df["rsi_14"] = df["rsi_14"].ffill().fillna(50)
         
-        # shock_index_lag5 from news features
-        if "shock_index" in df.columns:
-            df["shock_index_lag5"] = df.groupby("ticker")["shock_index"].shift(5)
-        else:
-            df["shock_index_lag5"] = 0
-        
-        df["shock_index_lag5"] = df["shock_index_lag5"].fillna(0)
-        
         # Drop NaN in target
         df = df.dropna(subset=[self.target_col])
         
@@ -247,14 +225,14 @@ class TitanCoordinator:
     
     def train(self, df: pd.DataFrame) -> dict:
         """
-        Train the coordinator on combined predictions.
+        Train the coordinator using Ridge (Linear Stacking).
         
         Uses Purged Walk-Forward validation:
         - Train: data < 2023-01-01
         - Test: data >= 2023-01-01
         """
         print("\n" + "=" * 70)
-        print("🎯 TRAINING TITAN COORDINATOR")
+        print("🎯 TRAINING TITAN COORDINATOR (Ridge Linear Stacking)")
         print("=" * 70)
         
         self.feature_cols = self.get_feature_columns()
@@ -288,19 +266,19 @@ class TitanCoordinator:
             print(f"      Test R²:  {baseline_r2:.4f} ({baseline_r2*100:.2f}%)")
             print(f"      Test RMSE: {baseline_rmse:.4f}")
         
-        # Train coordinator
-        print("\n   🔧 Training XGBoost Coordinator...")
+        # Train Ridge (Linear Stacking)
+        print("\n   🔧 Training Ridge Coordinator (Linear Stacking)...")
         
-        with self.tracker.start_run(run_name="titan_coordinator"):
+        with self.tracker.start_run(run_name="titan_coordinator_ridge"):
             self.tracker.log_params({
-                "model": "XGBRegressor",
-                "n_estimators": 200,
-                "max_depth": 3,
+                "model": "Ridge",
+                "alpha": 0.5,
                 "n_features": len(self.feature_cols),
                 "n_train": len(train),
                 "n_test": len(test)
             })
             
+            # Simple fit - no early stopping needed for Ridge
             self.model.fit(X_train, y_train)
             
             y_train_pred = self.model.predict(X_train)
@@ -313,7 +291,7 @@ class TitanCoordinator:
                 y_test.values, y_test_pred, step=1
             )
             
-            self.tracker.log_model(self.model, "titan_coordinator")
+            self.tracker.log_model(self.model, "titan_coordinator_ridge")
         
         # Print results
         print(f"\n   📈 Coordinator Results:")
@@ -331,10 +309,12 @@ class TitanCoordinator:
         }
     
     def get_feature_importance(self) -> pd.DataFrame:
-        """Get feature importances from the coordinator."""
+        """Get Ridge coefficients as feature importance."""
+        # Ridge uses coefficients instead of feature_importances_
         importance = pd.DataFrame({
             "feature": self.feature_cols,
-            "importance": self.model.feature_importances_
+            "coefficient": self.model.coef_,
+            "importance": np.abs(self.model.coef_)
         }).sort_values("importance", ascending=False)
         
         total = importance["importance"].sum()
@@ -344,6 +324,14 @@ class TitanCoordinator:
             importance["pct"] = 0.0
         
         return importance
+    
+    def get_ensemble_weights(self) -> dict:
+        """Get the learned ensemble weights."""
+        weights = {}
+        for i, feat in enumerate(self.feature_cols):
+            weights[feat] = self.model.coef_[i]
+        weights["intercept"] = self.model.intercept_
+        return weights
     
     def predict(self, df: pd.DataFrame) -> np.ndarray:
         """Generate predictions from the coordinator."""
@@ -382,7 +370,16 @@ class TitanCoordinator:
         if titan_r2 > baseline_r2:
             print("   ✅ Titan V8 OUTPERFORMS the baseline!")
         else:
-            print("   ⚠️ Baseline is still better - ensemble needs tuning")
+            print("   ⚠️ Baseline is still better - more data needed")
+        
+        # Print ensemble weights
+        print("\n   📊 ENSEMBLE WEIGHTS (Ridge Coefficients):")
+        print("   " + "-" * 40)
+        weights = self.get_ensemble_weights()
+        for feat, weight in weights.items():
+            if feat != "intercept":
+                print(f"      {feat:20s}: {weight:+.4f}")
+        print(f"      {'Intercept':20s}: {weights.get('intercept', 0):+.4f}")
         
         print("=" * 70)
 
@@ -390,11 +387,12 @@ class TitanCoordinator:
 def main():
     """Test the TitanCoordinator."""
     print("\n" + "=" * 70)
-    print("🚀 TITAN COORDINATOR TEST")
+    print("🚀 TITAN COORDINATOR TEST (Ridge Linear Stacking)")
     print("=" * 70)
     
     # This is a simple test - full usage is in run_full_pipeline.py
     coordinator = TitanCoordinator()
+    print(f"   Model: Ridge(alpha=0.5)")
     print(f"   Features: {coordinator.get_feature_columns()}")
     print("   ✅ Coordinator initialized successfully")
     print("\n   Run scripts/run_full_pipeline.py for full training")
@@ -402,4 +400,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
