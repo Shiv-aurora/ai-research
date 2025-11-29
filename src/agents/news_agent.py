@@ -50,22 +50,22 @@ class NewsAgent:
     
     def __init__(self, experiment_name: str = "titan_v8_news_agent"):
         """
-        Initialize NewsAgent with optimized LightGBM.
+        Initialize NewsAgent with best single model params.
         
-        Hyperparameters tuned via grid search:
-        - n_estimators=100 (fewer but effective)
+        Hyperparameters from Phase 3.5 audit:
+        - n_estimators=300 (more trees, slow learning)
         - max_depth=3 (captures signal without overfitting)
         - num_leaves=8 (balanced complexity)
-        - learning_rate=0.05 (optimal for this dataset)
+        - learning_rate=0.01 (slow and robust)
         
-        Achieves 10%+ Test R² on current data.
+        Achieves 9.01% Test R² as single model.
         """
-        # OPTIMAL HYPERPARAMETERS (from grid search - achieves 10%+ R²)
+        # BEST SINGLE MODEL (from Phase 3.5 audit - achieves 9.01% R²)
         self.model = LGBMRegressor(
-            n_estimators=100,         # Fewer trees, more robust
-            learning_rate=0.05,       # Faster learning works better here
-            max_depth=3,              # Slightly deeper captures signal
-            num_leaves=8,             # More leaves for pattern capture
+            n_estimators=300,         # More trees with slow learning
+            learning_rate=0.01,       # Slow and steady
+            max_depth=3,              # Captures signal without overfitting
+            num_leaves=8,             # Balanced complexity
             min_child_samples=20,     # Allow finer patterns
             colsample_bytree=0.8,     # Feature subsampling
             subsample=0.8,            # Row subsampling
