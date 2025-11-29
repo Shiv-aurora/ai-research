@@ -1,15 +1,18 @@
 """
-NewsAgent: News-Based Residual Prediction (Optimized)
-Phase 3.5: Overfitting Fix & Signal Enhancement
+NewsAgent: News-Based Residual Prediction (Optimized v2)
+Phase 3.5+ : Lagged Features Implementation
 
-This agent predicts the RESIDUALS from the TechnicalAgent (HAR-RV),
-with optimizations to reduce overfitting and improve generalization.
+Key Breakthrough from Audit:
+- news_count_lag5 is the #1 predictor (importance=40)
+- News has DELAYED effect on volatility (3-5 days)
+- Simpler models generalize better
 
-Key Optimizations:
-1. Rolling features (3-day, 7-day) to capture narrative persistence
-2. Interaction features with VIX (bad news matters more when scared)
-3. Heavy regularization (L1, L2) to prevent memorization
-4. Shallow trees and high min_child_samples
+Features:
+- Original: shock_index, news_count, sentiment_avg, novelty_score, PCA
+- Lagged: lag1, lag2, lag3, lag5 for key features
+- Interactions: shock * VIX
+
+Model: Simplified LightGBM (shallow trees, low complexity)
 
 Usage:
     python -m src.agents.news_agent
@@ -30,41 +33,40 @@ from src.utils.tracker import MLTracker
 
 class NewsAgent:
     """
-    Optimized NewsAgent for residual prediction.
+    Optimized NewsAgent with Lagged Features.
+    
+    Key Discovery: News has a DELAYED effect on volatility.
+    news_count_lag5 is the strongest predictor.
     
     Features:
-        - Original: shock_index, news_count, sentiment_avg, novelty_score, news_pca_0..19
-        - Rolling: 3-day and 7-day means for key features (narrative persistence)
-        - Interactions: shock * VIX, news_count * VIX (regime context)
+        - Original: shock_index, news_count, sentiment_avg, novelty_score, PCA
+        - Lagged: lag1, lag2, lag3, lag5 for news_count, shock_index, sentiment_avg
+        - Interaction: shock_vix_interaction
     
-    Target:
-        - resid_tech: Residual from TechnicalAgent
-    
-    Regularization:
-        - L1 (reg_alpha) and L2 (reg_lambda) to prevent overfitting
-        - Shallow trees (max_depth=3) and min_child_samples=50
+    Model:
+        - LightGBM with shallow trees (max_depth=2)
+        - Forces model to pick only strongest signals
     """
     
     def __init__(self, experiment_name: str = "titan_v8_news_agent"):
         """
-        Initialize the optimized NewsAgent.
+        Initialize NewsAgent with simplified LightGBM.
         
-        Heavy regularization to combat overfitting:
-        - Lower learning rate (0.01)
-        - Shallow trees (max_depth=3)
-        - L1/L2 regularization
-        - High min_child_samples (50)
+        Hyperparameters tuned based on audit:
+        - Shallow trees (max_depth=2) to prevent overfitting
+        - Low num_leaves (4) to prevent memorization
+        - Slow learning rate (0.02) for robustness
         """
         self.model = LGBMRegressor(
-            n_estimators=1000,
-            learning_rate=0.01,       # Very low for robustness
-            max_depth=3,              # Shallow trees
-            num_leaves=15,            # Simple structure
-            min_child_samples=50,     # Broad patterns only
+            n_estimators=200,         # Reduced from 1000
+            learning_rate=0.02,       # Slow and steady
+            max_depth=2,              # Very shallow - forces strongest signals
+            num_leaves=4,             # Prevents memorization
+            min_child_samples=30,     # Broad patterns only
+            colsample_bytree=0.8,     # Feature subsampling
+            subsample=0.8,            # Row subsampling
             reg_alpha=0.1,            # L1 regularization
             reg_lambda=0.1,           # L2 regularization
-            subsample=0.8,            # Bagging for robustness
-            colsample_bytree=0.8,     # Feature bagging
             random_state=42,
             verbose=-1
         )
@@ -78,14 +80,14 @@ class NewsAgent:
         
     def load_and_merge_data(self) -> pd.DataFrame:
         """
-        Load data and perform on-the-fly feature engineering.
+        Load data and engineer lagged features.
         
-        Feature Engineering:
-        A. Rolling features (narrative persistence)
-        B. Interaction features with VIX (regime context)
+        Key Feature Engineering:
+        1. Lagged features (lag 1, 2, 3, 5) - captures delayed news effect
+        2. VIX interaction - regime context
         
         Returns:
-            Merged DataFrame with engineered features
+            DataFrame with lagged features ready for training
         """
         print("\n📂 Loading and merging data...")
         
@@ -104,136 +106,127 @@ class NewsAgent:
         news_df = pd.read_parquet(news_path)
         print(f"   ✓ News features: {len(news_df):,} rows")
         
-        # Load targets for VIX (needed for interaction features)
+        # Load targets for VIX
         targets_path = Path("data/processed/targets.parquet")
         targets_df = pd.read_parquet(targets_path)
         vix_df = targets_df[["date", "ticker", "VIX_close"]].copy()
-        print(f"   ✓ VIX data loaded")
         
         # Normalize dates
-        residuals_df["date"] = pd.to_datetime(residuals_df["date"]).dt.tz_localize(None)
-        news_df["date"] = pd.to_datetime(news_df["date"]).dt.tz_localize(None)
-        vix_df["date"] = pd.to_datetime(vix_df["date"]).dt.tz_localize(None)
-        
-        # Convert ticker to string
         for df in [residuals_df, news_df, vix_df]:
+            df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
             if df["ticker"].dtype.name == "category":
                 df["ticker"] = df["ticker"].astype(str)
         
-        # Merge residuals + news
+        # Merge
         merged = pd.merge(residuals_df, news_df, on=["date", "ticker"], how="inner")
-        
-        # Merge with VIX
         merged = pd.merge(merged, vix_df, on=["date", "ticker"], how="left")
-        merged["VIX_close"] = merged["VIX_close"].ffill().fillna(15)  # Default VIX
+        merged["VIX_close"] = merged["VIX_close"].ffill().fillna(15)
+        
+        # Sort for proper lag calculations
+        merged = merged.sort_values(["ticker", "date"]).reset_index(drop=True)
         
         print(f"   ✓ Merged: {len(merged):,} rows")
         
-        # Sort for proper rolling calculations
-        merged = merged.sort_values(["ticker", "date"]).reset_index(drop=True)
+        # =============================================
+        # FEATURE ENGINEERING: LAGGED FEATURES
+        # =============================================
+        print("\n   🔧 Engineering lagged features...")
+        
+        # Create VIX interaction first (before lagging)
+        merged["shock_vix_interaction"] = merged["shock_index"] * merged["VIX_close"]
+        
+        # Columns to lag (based on audit findings)
+        lag_cols = ["news_count", "shock_index", "sentiment_avg", "shock_vix_interaction"]
+        lags = [1, 2, 3, 5]
+        
+        for col in lag_cols:
+            for lag in lags:
+                merged[f"{col}_lag{lag}"] = merged.groupby("ticker")[col].shift(lag)
+        
+        n_lag_features = len(lag_cols) * len(lags)
+        print(f"      ✓ Created {n_lag_features} lagged features")
+        
+        # Drop NaN rows (first 5 rows per ticker due to lag5)
+        before = len(merged)
+        merged = merged.dropna()
+        after = len(merged)
+        print(f"      ✓ Dropped {before - after} rows with NaN (lag warmup)")
         
         # =============================================
-        # FEATURE ENGINEERING
+        # FEATURE ENGINEERING: ROLLING FEATURES
         # =============================================
-        print("\n   🔧 Engineering features...")
-        
-        # A. ROLLING FEATURES (Narrative Persistence)
-        # News themes persist - a 3-day trend is stronger than a 1-day blip
-        roll_cols = ["news_pca_0", "news_pca_1", "news_pca_2", "news_pca_3", 
-                     "news_pca_4", "sentiment_avg"]
-        
-        for col in roll_cols:
+        # Keep a few rolling features for narrative persistence
+        for col in ["news_pca_0", "sentiment_avg"]:
             if col in merged.columns:
-                # Group by ticker for proper rolling
                 merged[f"{col}_roll3"] = merged.groupby("ticker")[col].transform(
                     lambda x: x.rolling(3, min_periods=1).mean()
                 )
-                merged[f"{col}_roll7"] = merged.groupby("ticker")[col].transform(
-                    lambda x: x.rolling(7, min_periods=1).mean()
-                )
-        
-        print(f"      ✓ Added {len(roll_cols) * 2} rolling features")
-        
-        # B. INTERACTION FEATURES (Regime Context)
-        # Bad news matters more when market is already scared (high VIX)
-        merged["shock_vix_interaction"] = merged["shock_index"] * merged["VIX_close"]
-        merged["news_vix_interaction"] = merged["news_count"] * merged["VIX_close"]
-        merged["sentiment_vix_interaction"] = merged["sentiment_avg"] * merged["VIX_close"]
-        
-        print(f"      ✓ Added 3 interaction features")
-        
-        # C. VOLATILITY REGIME FEATURE
-        # Is VIX above/below median? (binary regime)
-        vix_median = merged["VIX_close"].median()
-        merged["high_vix_regime"] = (merged["VIX_close"] > vix_median).astype(int)
-        
-        print(f"      ✓ Added VIX regime feature (median={vix_median:.1f})")
-        
-        # D. CLEAN UP - Drop NaN from rolling windows
-        before = len(merged)
-        merged = merged.dropna(subset=[self.target_col])
-        after = len(merged)
-        if before > after:
-            print(f"      ✓ Dropped {before - after} rows with NaN")
         
         print(f"\n   📊 Final dataset: {len(merged):,} rows")
-        print(f"   📊 Total features available: {len([c for c in merged.columns if c not in ['date', 'ticker', 'resid_tech', 'target_log_var', 'pred_tech']])}")
+        
+        # Stats
+        print(f"\n   📊 Residual Stats:")
+        print(f"      Mean:  {merged[self.target_col].mean():.4f}")
+        print(f"      Std:   {merged[self.target_col].std():.4f}")
         
         self.df = merged
         return merged
     
     def get_feature_columns(self, df: pd.DataFrame) -> list:
-        """
-        Get all feature column names including engineered features.
-        """
+        """Get all feature column names including lagged features."""
+        features = []
+        
         # Original core features
-        features = ["shock_index", "news_count", "sentiment_avg", "novelty_score"]
+        core = ["shock_index", "news_count", "sentiment_avg", "novelty_score"]
+        features.extend([f for f in core if f in df.columns])
         
         # PCA columns
-        pca_cols = [col for col in df.columns if col.startswith("news_pca_")]
+        pca_cols = [c for c in df.columns if c.startswith("news_pca_")]
         features.extend(sorted(pca_cols))
         
+        # Lagged features (KEY for this model)
+        lag_cols = [c for c in df.columns if "_lag" in c]
+        features.extend(sorted(lag_cols))
+        
         # Rolling features
-        roll_cols = [col for col in df.columns if "_roll3" in col or "_roll7" in col]
+        roll_cols = [c for c in df.columns if "_roll" in c]
         features.extend(sorted(roll_cols))
         
         # Interaction features
-        interaction_cols = [col for col in df.columns if "_interaction" in col]
-        features.extend(sorted(interaction_cols))
+        if "shock_vix_interaction" in df.columns:
+            features.append("shock_vix_interaction")
         
-        # Regime feature
-        if "high_vix_regime" in df.columns:
-            features.append("high_vix_regime")
-        
-        # VIX itself
+        # VIX
         if "VIX_close" in df.columns:
             features.append("VIX_close")
         
-        # Remove duplicates and non-existent columns
-        features = [f for f in features if f in df.columns]
-        features = list(dict.fromkeys(features))  # Remove duplicates, preserve order
+        # Remove duplicates
+        features = list(dict.fromkeys(features))
         
         return features
     
     def train(self, df: pd.DataFrame = None) -> dict:
         """
-        Train the optimized LightGBM model on residuals.
+        Train simplified LightGBM on residuals with lagged features.
         """
         if df is None:
             df = self.df
             
-        print("\n🎯 Training Optimized NewsAgent on RESIDUALS...")
+        print("\n🎯 Training NewsAgent with LAGGED FEATURES...")
         
         # Define features
         self.feature_cols = self.get_feature_columns(df)
         
+        # Count feature types
+        n_lag = len([f for f in self.feature_cols if "_lag" in f])
+        n_pca = len([f for f in self.feature_cols if "pca" in f])
+        n_other = len(self.feature_cols) - n_lag - n_pca
+        
         print(f"\n   Features: {len(self.feature_cols)}")
+        print(f"      - Lagged:  {n_lag} (key predictors)")
+        print(f"      - PCA:     {n_pca}")
+        print(f"      - Other:   {n_other}")
         print(f"   Target: {self.target_col}")
-        print(f"\n   Feature breakdown:")
-        print(f"      - Original:     {len([f for f in self.feature_cols if not ('_roll' in f or '_interaction' in f or 'regime' in f or 'VIX' in f)])}")
-        print(f"      - Rolling:      {len([f for f in self.feature_cols if '_roll' in f])}")
-        print(f"      - Interaction:  {len([f for f in self.feature_cols if '_interaction' in f])}")
-        print(f"      - VIX/Regime:   {len([f for f in self.feature_cols if 'VIX' in f or 'regime' in f])}")
         
         # Time-series split
         train_cutoff = pd.to_datetime("2023-01-01")
@@ -258,27 +251,24 @@ class NewsAgent:
         print(f"      Test:  {len(X_test):,} samples")
         
         # Start MLflow run
-        with self.tracker.start_run(run_name="news_agent_optimized"):
+        with self.tracker.start_run(run_name="news_agent_lagged"):
             # Log parameters
             self.tracker.log_params({
-                "model": "LGBMRegressor_Optimized",
+                "model": "LGBMRegressor_Lagged",
                 "target": "resid_tech",
-                "n_estimators": 1000,
-                "learning_rate": 0.01,
-                "max_depth": 3,
-                "reg_alpha": 0.1,
-                "reg_lambda": 0.1,
-                "min_child_samples": 50,
+                "n_estimators": 200,
+                "learning_rate": 0.02,
+                "max_depth": 2,
+                "num_leaves": 4,
                 "n_features": len(self.feature_cols),
-                "n_rolling_features": len([f for f in self.feature_cols if '_roll' in f]),
-                "n_interaction_features": len([f for f in self.feature_cols if '_interaction' in f]),
+                "n_lagged_features": n_lag,
             })
             
-            # Train model with early stopping
-            print("\n   🔧 Fitting Optimized LightGBM...")
+            # Train model
+            print("\n   🔧 Fitting Simplified LightGBM...")
             self.model.fit(
                 X_train, y_train,
-                eval_set=[(X_train, y_train), (X_test, y_test)],
+                eval_set=[(X_test, y_test)],
                 eval_metric="rmse"
             )
             
@@ -298,17 +288,17 @@ class NewsAgent:
             )
             
             # Print comparison
-            print(f"\n   {'Metric':<20} {'Train':>10} {'Test':>10} {'Gap':>10}")
-            print("   " + "-" * 52)
+            print(f"\n   {'Metric':<25} {'Train':>10} {'Test':>10} {'Gap':>10}")
+            print("   " + "-" * 57)
             
             r2_gap = self.train_metrics['R2'] - self.test_metrics['R2']
-            print(f"   {'RMSE':<20} {self.train_metrics['RMSE']:>10.4f} {self.test_metrics['RMSE']:>10.4f}")
-            print(f"   {'MAE':<20} {self.train_metrics['MAE']:>10.4f} {self.test_metrics['MAE']:>10.4f}")
-            print(f"   {'R²':<20} {self.train_metrics['R2']:>10.4f} {self.test_metrics['R2']:>10.4f} {r2_gap:>10.4f}")
-            print(f"   {'Dir. Accuracy':<20} {self.train_metrics['Directional_Accuracy']:>9.1f}% {self.test_metrics['Directional_Accuracy']:>9.1f}%")
+            print(f"   {'RMSE':<25} {self.train_metrics['RMSE']:>10.4f} {self.test_metrics['RMSE']:>10.4f}")
+            print(f"   {'MAE':<25} {self.train_metrics['MAE']:>10.4f} {self.test_metrics['MAE']:>10.4f}")
+            print(f"   {'R²':<25} {self.train_metrics['R2']:>10.4f} {self.test_metrics['R2']:>10.4f} {r2_gap:>10.4f}")
+            print(f"   {'Directional Accuracy':<25} {self.train_metrics['Directional_Accuracy']:>9.1f}% {self.test_metrics['Directional_Accuracy']:>9.1f}%")
             
             # Log model
-            self.tracker.log_model(self.model, "news_agent_optimized")
+            self.tracker.log_model(self.model, "news_agent_lagged")
         
         return {
             "train": self.train_metrics,
@@ -331,22 +321,27 @@ class NewsAgent:
         ).reset_index(drop=True)
         
         total = importance_df["importance"].sum()
-        importance_df["pct"] = (importance_df["importance"] / total * 100).round(1)
+        if total > 0:
+            importance_df["pct"] = (importance_df["importance"] / total * 100).round(1)
+        else:
+            importance_df["pct"] = 0.0
         
         # Add feature type
-        def get_feature_type(f):
-            if "_roll" in f:
+        def get_type(f):
+            if "_lag" in f:
+                return "LAGGED"
+            elif "_roll" in f:
                 return "rolling"
             elif "_interaction" in f:
                 return "interaction"
-            elif "VIX" in f or "regime" in f:
-                return "regime"
             elif "pca" in f:
                 return "pca"
+            elif "VIX" in f:
+                return "regime"
             else:
                 return "original"
         
-        importance_df["type"] = importance_df["feature"].apply(get_feature_type)
+        importance_df["type"] = importance_df["feature"].apply(get_type)
         
         return importance_df
     
@@ -362,11 +357,11 @@ class NewsAgent:
 
 
 def main():
-    """Run optimized NewsAgent."""
-    print("\n" + "=" * 60)
-    print("🚀 TITAN V8 NEWS AGENT (OPTIMIZED)")
-    print("    Phase 3.5: Overfitting Fix & Signal Enhancement")
-    print("=" * 60)
+    """Run NewsAgent with lagged features."""
+    print("\n" + "=" * 65)
+    print("🚀 TITAN V8 NEWS AGENT (LAGGED FEATURES)")
+    print("    Breakthrough: news_count_lag5 is #1 predictor!")
+    print("=" * 65)
     
     # Initialize agent
     agent = NewsAgent(experiment_name="titan_v8_news_agent")
@@ -380,76 +375,61 @@ def main():
     # Get feature importance
     importance = agent.get_feature_importance()
     
-    # Print results
-    print("\n" + "=" * 60)
-    print("📊 TOP 15 MOST IMPORTANT FEATURES")
-    print("=" * 60)
+    # Print feature importance
+    print("\n" + "=" * 65)
+    print("📊 TOP 15 FEATURE IMPORTANCE")
+    print("=" * 65)
+    print("\n(Expecting LAGGED features at the top!)\n")
     print(importance.head(15).to_string(index=False))
     
-    # Analyze feature types in top 10
+    # Count lagged features in top 10
     top10 = importance.head(10)
-    type_counts = top10["type"].value_counts()
+    lagged_in_top10 = top10[top10["type"] == "LAGGED"]
     
-    print("\n   Feature type breakdown (Top 10):")
-    for ftype, count in type_counts.items():
-        print(f"      {ftype}: {count}")
+    print(f"\n   💡 LAGGED features in top 10: {len(lagged_in_top10)}")
+    if len(lagged_in_top10) > 0:
+        for _, row in lagged_in_top10.iterrows():
+            print(f"      - {row['feature']} ({row['pct']}%)")
     
-    # Check for engineered features in top 10
-    engineered_in_top10 = top10[top10["type"].isin(["rolling", "interaction", "regime"])]
+    # Final assessment
+    print("\n" + "=" * 65)
+    print("📈 FINAL RESULTS")
+    print("=" * 65)
     
-    print("\n" + "=" * 60)
-    print("📈 OVERFITTING ANALYSIS")
-    print("=" * 60)
-    
-    train_r2 = metrics['train']['R2']
     test_r2 = metrics['test']['R2']
+    test_dir = metrics['test']['Directional_Accuracy']
     r2_gap = metrics['r2_gap']
     
-    print(f"\n   Train R²: {train_r2:.4f}")
-    print(f"   Test R²:  {test_r2:.4f}")
-    print(f"   Gap:      {r2_gap:.4f}")
+    print(f"\n   Test R²:              {test_r2:.4f} ({test_r2*100:.2f}%)")
+    print(f"   Directional Accuracy: {test_dir:.1f}%")
+    print(f"   Train-Test Gap:       {r2_gap:.4f}")
     
-    # Assessment
-    if r2_gap < 0.1:
-        gap_verdict = "✅ EXCELLENT - Minimal overfitting!"
-    elif r2_gap < 0.3:
-        gap_verdict = "✅ GOOD - Acceptable generalization."
-    elif r2_gap < 0.5:
-        gap_verdict = "⚠️ MODERATE - Some overfitting, but manageable."
+    # Verdict
+    print("\n" + "-" * 65)
+    
+    if test_r2 > 0.07:
+        r2_verdict = "✅ EXCELLENT - Lagged features working!"
+    elif test_r2 > 0.04:
+        r2_verdict = "✅ GOOD - Improvement from baseline."
+    elif test_r2 > 0:
+        r2_verdict = "⚠️ MARGINAL - Positive but small signal."
     else:
-        gap_verdict = "❌ HIGH - Still overfitting significantly."
+        r2_verdict = "❌ POOR - No predictive signal."
     
-    print(f"\n   {gap_verdict}")
-    
-    # Final verdict
-    print("\n" + "=" * 60)
-    print("🔬 FINAL ASSESSMENT")
-    print("=" * 60)
-    
-    if test_r2 > 0.05 and r2_gap < 0.3:
-        verdict = "✅ SUCCESS - Optimizations worked!"
-        action = "Proceed to Hybrid Ensemble (Phase 4)."
-    elif test_r2 > 0 and r2_gap < 0.5:
-        verdict = "⚠️ PARTIAL SUCCESS - Signal exists but weak."
-        action = "Consider additional feature engineering or data."
+    if test_dir > 55:
+        dir_verdict = "✅ ABOVE TARGET (>55%)"
+    elif test_dir > 52:
+        dir_verdict = "⚠️ ABOVE BASELINE (>50%)"
     else:
-        verdict = "❌ NEEDS MORE WORK - Signal not robust."
-        action = "Try different features or model architecture."
+        dir_verdict = "❌ NOT BETTER THAN RANDOM"
     
-    print(f"\n   {verdict}")
-    print(f"\n   Test R²: {test_r2:.4f}")
-    print(f"   R² Gap:  {r2_gap:.4f}")
-    print(f"\n   Action: {action}")
+    print(f"   R² Assessment:        {r2_verdict}")
+    print(f"   Direction Assessment: {dir_verdict}")
     
-    if len(engineered_in_top10) > 0:
-        print(f"\n   💡 Engineered features in top 10: {len(engineered_in_top10)}")
-        for _, row in engineered_in_top10.iterrows():
-            print(f"      - {row['feature']} ({row['type']}, {row['pct']}%)")
-    
-    print("=" * 60)
-    
-    print("\n✅ Optimized NewsAgent training complete!")
-    print("   Results logged to MLflow: news_agent_optimized")
+    print("\n" + "=" * 65)
+    print("✅ NewsAgent with lagged features complete!")
+    print("   Model saved to MLflow: news_agent_lagged")
+    print("=" * 65)
 
 
 if __name__ == "__main__":
