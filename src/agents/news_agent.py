@@ -1,9 +1,14 @@
 """
-NewsAgent: News-Only Volatility Prediction
-Phase 1.3: Feasibility Test
+NewsAgent: News-Based Residual Prediction
+Phase 3: News Agent Integration
 
-This agent tests whether news features alone can predict volatility.
-Uses LightGBM with MLflow tracking.
+This agent predicts the RESIDUALS from the TechnicalAgent (HAR-RV),
+attempting to explain what technical features cannot.
+
+Key Insight:
+- Phase 1.3 showed news alone can't predict raw volatility (R² < 0)
+- But news might explain the "unexplained" variance (residuals)
+- Even R² = 0.05 on residuals is valuable!
 
 Usage:
     python -m src.agents.news_agent
@@ -24,10 +29,10 @@ from src.utils.tracker import MLTracker
 
 class NewsAgent:
     """
-    Agent that predicts volatility using only news-derived features.
+    Agent that predicts TechnicalAgent RESIDUALS using news features.
     
-    This is a feasibility test to determine if news signals
-    have predictive power for next-day volatility.
+    After removing the "inertia" (what technical features explain),
+    we test if news can capture the remaining signal.
     
     Features used:
         - shock_index: Keyword-based severity score
@@ -37,43 +42,58 @@ class NewsAgent:
         - news_pca_0..19: 20 news theme dimensions
     
     Target:
-        - target_log_var: log(next_day_realized_variance)
+        - resid_tech: Residual from TechnicalAgent (HAR-RV)
+        - resid_tech = target_log_var - pred_tech
     """
     
     def __init__(self, experiment_name: str = "titan_v8_news_agent"):
         """
         Initialize the NewsAgent with LightGBM model.
         
+        Hyperparameters tuned for residual prediction:
+        - Lower learning rate (0.03) to prevent overfitting noise
+        - Shallower trees (max_depth=4) for generalization
+        
         Args:
             experiment_name: MLflow experiment name
         """
         self.model = LGBMRegressor(
             n_estimators=500,
-            learning_rate=0.05,
-            max_depth=6,
-            num_leaves=31,
+            learning_rate=0.03,  # Lower for residuals
+            max_depth=4,         # Shallower to prevent overfitting
+            num_leaves=15,
+            min_child_samples=20,
             random_state=42,
             verbose=-1
         )
         
         self.tracker = MLTracker(experiment_name)
         self.feature_cols = None
+        self.target_col = "resid_tech"  # Changed from target_log_var
         self.train_metrics = None
         self.test_metrics = None
+        self.df = None
         
     def load_and_merge_data(self) -> pd.DataFrame:
         """
-        Load and merge price targets with news features.
+        Load residuals from TechnicalAgent and merge with news features.
         
         Returns:
-            Merged DataFrame ready for training
+            Merged DataFrame ready for training on residuals
         """
         print("\n📂 Loading and merging data...")
         
-        # Load targets (price-based volatility)
-        targets_path = Path("data/processed/targets.parquet")
-        targets_df = pd.read_parquet(targets_path)
-        print(f"   ✓ Targets: {len(targets_df):,} rows")
+        # Load residuals from TechnicalAgent
+        residuals_path = Path("data/processed/residuals.parquet")
+        if not residuals_path.exists():
+            raise FileNotFoundError(
+                "Residuals file not found! Run TechnicalAgent first:\n"
+                "  python -m src.agents.technical_agent"
+            )
+        
+        residuals_df = pd.read_parquet(residuals_path)
+        print(f"   ✓ Residuals: {len(residuals_df):,} rows")
+        print(f"      Columns: {list(residuals_df.columns)}")
         
         # Load news features
         news_path = Path("data/processed/news_features.parquet")
@@ -81,27 +101,27 @@ class NewsAgent:
         print(f"   ✓ News features: {len(news_df):,} rows")
         
         # Ensure date columns are compatible
-        targets_df["date"] = pd.to_datetime(targets_df["date"]).dt.tz_localize(None)
+        residuals_df["date"] = pd.to_datetime(residuals_df["date"]).dt.tz_localize(None)
         news_df["date"] = pd.to_datetime(news_df["date"]).dt.tz_localize(None)
         
         # Convert ticker to string if categorical
-        if targets_df["ticker"].dtype.name == "category":
-            targets_df["ticker"] = targets_df["ticker"].astype(str)
+        if residuals_df["ticker"].dtype.name == "category":
+            residuals_df["ticker"] = residuals_df["ticker"].astype(str)
         if news_df["ticker"].dtype.name == "category":
             news_df["ticker"] = news_df["ticker"].astype(str)
         
         # Merge on date and ticker
         merged = pd.merge(
-            targets_df,
+            residuals_df,
             news_df,
             on=["date", "ticker"],
             how="inner"
         )
         print(f"   ✓ Merged: {len(merged):,} rows")
         
-        # Drop rows with NaN target
+        # Drop rows with NaN in target (resid_tech)
         before = len(merged)
-        merged = merged.dropna(subset=["target_log_var"])
+        merged = merged.dropna(subset=[self.target_col])
         after = len(merged)
         if before > after:
             print(f"   ✓ Dropped {before - after} rows with NaN target")
@@ -112,6 +132,13 @@ class NewsAgent:
         print(f"   ✓ Date range: {merged['date'].min()} to {merged['date'].max()}")
         print(f"   ✓ Tickers: {merged['ticker'].unique().tolist()}")
         
+        # Show residual stats
+        print(f"\n   📊 Residual Stats (what we're predicting):")
+        print(f"      Mean:  {merged[self.target_col].mean():.4f}")
+        print(f"      Std:   {merged[self.target_col].std():.4f}")
+        print(f"      Range: [{merged[self.target_col].min():.2f}, {merged[self.target_col].max():.2f}]")
+        
+        self.df = merged
         return merged
     
     def get_feature_columns(self, df: pd.DataFrame) -> list:
@@ -133,69 +160,72 @@ class NewsAgent:
         
         return features
     
-    def train(self, df: pd.DataFrame) -> dict:
+    def train(self, df: pd.DataFrame = None) -> dict:
         """
-        Train the LightGBM model with time-series split.
+        Train the LightGBM model on residuals with time-series split.
         
         Args:
-            df: Merged DataFrame with features and target
+            df: Merged DataFrame with features and residual target
         
         Returns:
             Dictionary with train/test metrics
         """
-        print("\n🎯 Training NewsAgent...")
+        if df is None:
+            df = self.df
+            
+        print("\n🎯 Training NewsAgent on RESIDUALS...")
+        print("   (Predicting what TechnicalAgent couldn't explain)")
         
         # Define features and target
         self.feature_cols = self.get_feature_columns(df)
-        target_col = "target_log_var"
         
-        print(f"   Features: {len(self.feature_cols)}")
-        print(f"   Target: {target_col}")
+        print(f"\n   Features: {len(self.feature_cols)}")
+        print(f"   Target: {self.target_col} (TechnicalAgent residuals)")
         
         # Time-series split
-        # Try date-based split first, fall back to percentage if data is limited
         train_cutoff = pd.to_datetime("2023-01-01")
         
         train_mask = df["date"] < train_cutoff
         test_mask = df["date"] >= train_cutoff
         
         # If date split doesn't work, use 70/30 split
-        if train_mask.sum() < 10 or test_mask.sum() < 5:
-            print("\n   ⚠️ Limited date range - using 70/30 split instead")
+        if train_mask.sum() < 50 or test_mask.sum() < 20:
+            print("\n   ⚠️ Limited date range - using 70/30 split")
             split_idx = int(len(df) * 0.7)
             train_mask = df.index < split_idx
             test_mask = df.index >= split_idx
-            train_cutoff = df.loc[split_idx, "date"] if split_idx < len(df) else df["date"].max()
+            train_cutoff = df.iloc[split_idx]["date"] if split_idx < len(df) else df["date"].max()
         
         X_train = df.loc[train_mask, self.feature_cols]
-        y_train = df.loc[train_mask, target_col]
+        y_train = df.loc[train_mask, self.target_col]
         X_test = df.loc[test_mask, self.feature_cols]
-        y_test = df.loc[test_mask, target_col]
+        y_test = df.loc[test_mask, self.target_col]
         
         print(f"\n   📊 Split:")
         print(f"      Train: {len(X_train):,} samples")
         print(f"      Test:  {len(X_test):,} samples")
         print(f"      Cutoff: {train_cutoff}")
         
-        if len(X_train) < 5 or len(X_test) < 3:
-            raise ValueError("Not enough data for training! Need more samples.")
+        if len(X_train) < 10 or len(X_test) < 5:
+            raise ValueError("Not enough data for training!")
         
         # Start MLflow run
-        with self.tracker.start_run(run_name="news_agent_feasibility"):
+        with self.tracker.start_run(run_name="news_agent_residual"):
             # Log parameters
             self.tracker.log_params({
                 "model": "LGBMRegressor",
+                "target": "resid_tech",
                 "n_estimators": 500,
-                "learning_rate": 0.05,
-                "max_depth": 6,
+                "learning_rate": 0.03,
+                "max_depth": 4,
                 "n_features": len(self.feature_cols),
                 "train_samples": len(X_train),
                 "test_samples": len(X_test),
-                "train_cutoff": str(train_cutoff.date())
+                "train_cutoff": str(train_cutoff)
             })
             
             # Train model
-            print("\n   🔧 Fitting LightGBM...")
+            print("\n   🔧 Fitting LightGBM on residuals...")
             self.model.fit(
                 X_train, y_train,
                 eval_set=[(X_test, y_test)],
@@ -229,7 +259,7 @@ class NewsAgent:
             print(f"      Directional Accuracy: {self.test_metrics['Directional_Accuracy']:.1f}%")
             
             # Log model
-            self.tracker.log_model(self.model, "news_agent_lgbm")
+            self.tracker.log_model(self.model, "news_agent_residual")
         
         return {
             "train": self.train_metrics,
@@ -255,14 +285,36 @@ class NewsAgent:
             "importance", ascending=False
         ).reset_index(drop=True)
         
+        # Add percentage
+        total = importance_df["importance"].sum()
+        importance_df["pct"] = (importance_df["importance"] / total * 100).round(1)
+        
         return importance_df
+    
+    def predict(self, df: pd.DataFrame = None) -> pd.Series:
+        """
+        Generate residual predictions.
+        
+        Args:
+            df: DataFrame with features (uses self.df if None)
+        
+        Returns:
+            Series of predicted residuals
+        """
+        if df is None:
+            df = self.df
+        
+        X = df[self.feature_cols]
+        predictions = self.model.predict(X)
+        
+        return pd.Series(predictions, index=df.index)
 
 
 def main():
-    """Run NewsAgent feasibility test."""
+    """Run NewsAgent on TechnicalAgent residuals."""
     print("\n" + "=" * 60)
-    print("🚀 TITAN V8 NEWS AGENT FEASIBILITY TEST")
-    print("    Phase 1.3: Can News Predict Volatility?")
+    print("🚀 TITAN V8 NEWS AGENT (RESIDUAL PREDICTION)")
+    print("    Phase 3: Can News Explain the Unexplained?")
     print("=" * 60)
     
     # Initialize agent
@@ -281,43 +333,59 @@ def main():
     print("\n" + "=" * 60)
     print("📊 TOP 10 MOST IMPORTANT FEATURES")
     print("=" * 60)
+    print("\n(Now that we removed volatility inertia, do news features matter?)\n")
     print(importance.head(10).to_string(index=False))
+    
+    # Check if shock_index or sentiment rose to the top
+    top_5 = importance.head(5)["feature"].tolist()
+    key_features_in_top5 = [f for f in ["shock_index", "sentiment_avg", "novelty_score"] if f in top_5]
     
     print("\n" + "=" * 60)
     print("📈 FINAL RESULTS")
     print("=" * 60)
+    print(f"\nTarget: resid_tech (TechnicalAgent residuals)")
     print(f"\nTest Set Performance:")
     print(f"   RMSE: {metrics['test']['RMSE']:.4f}")
     print(f"   MAE:  {metrics['test']['MAE']:.4f}")
     print(f"   R²:   {metrics['test']['R2']:.4f}")
     print(f"   Directional Accuracy: {metrics['test']['Directional_Accuracy']:.1f}%")
     
-    # Feasibility assessment
+    # Assessment
     print("\n" + "=" * 60)
-    print("🔬 FEASIBILITY ASSESSMENT")
+    print("🔬 RESIDUAL PREDICTION ASSESSMENT")
     print("=" * 60)
     
     r2 = metrics['test']['R2']
     dir_acc = metrics['test']['Directional_Accuracy']
     
-    if r2 > 0.1 and dir_acc > 55:
-        verdict = "✅ SUCCESS - News features show predictive signal!"
-        recommendation = "Proceed to integrate with price features."
-    elif r2 > 0 and dir_acc > 50:
-        verdict = "⚠️ MARGINAL - Weak but positive signal detected."
-        recommendation = "News may add value when combined with other features."
+    if r2 > 0.05:
+        verdict = "✅ SUCCESS - News explains some residual variance!"
+        explanation = f"R²={r2:.3f} means news captures {r2*100:.1f}% of unexplained variance."
+        action = "Proceed to build Hybrid Ensemble (Tech + News)."
+    elif r2 > 0:
+        verdict = "⚠️ MARGINAL - Tiny but positive signal detected."
+        explanation = f"R²={r2:.4f} is small but positive."
+        action = "News may add marginal value; consider feature selection."
     else:
-        verdict = "❌ INSUFFICIENT - News alone is not predictive."
-        recommendation = "Focus on price/volatility features; news as secondary."
+        verdict = "❌ NO SIGNAL - News doesn't help explain residuals."
+        explanation = f"R²={r2:.4f} is zero or negative."
+        action = "Focus on other data sources (options, order flow, etc.)."
     
     print(f"\n{verdict}")
-    print(f"\nRecommendation: {recommendation}")
+    print(f"\n{explanation}")
+    print(f"\nAction: {action}")
+    
+    if key_features_in_top5:
+        print(f"\n💡 Key news features in top 5: {key_features_in_top5}")
+    else:
+        print(f"\n💡 PCA themes dominate - specific events matter more than sentiment.")
+    
     print("=" * 60)
     
-    print("\n✅ NewsAgent feasibility test complete!")
+    print("\n✅ NewsAgent residual training complete!")
     print("   Results logged to MLflow experiment: titan_v8_news_agent")
+    print("   Model saved as: news_agent_residual")
 
 
 if __name__ == "__main__":
     main()
-
