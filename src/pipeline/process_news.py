@@ -43,15 +43,19 @@ def load_config(config_path: str = "conf/base/config.yaml") -> dict:
 
 def get_device() -> str:
     """
-    Get optimal device for M1 Max acceleration.
+    Get optimal device for model inference.
+    
+    Note: MPS (Apple Silicon) can cause bus errors with sentence-transformers.
+    We use CPU for stability. For large-scale production, consider CUDA.
     
     Returns:
-        "mps" for Apple Silicon, "cpu" otherwise
+        Device string for PyTorch
     """
-    if torch.backends.mps.is_available():
-        return "mps"
-    elif torch.cuda.is_available():
+    # MPS has compatibility issues with sentence-transformers
+    # Falling back to CPU for stability
+    if torch.cuda.is_available():
         return "cuda"
+    # CPU is more stable for sentence-transformers on M1
     return "cpu"
 
 
@@ -355,12 +359,12 @@ def main():
     # =========================================
     device = get_device()
     print(f"\n🖥️  DEVICE: {device.upper()}")
-    if device == "mps":
-        print("   ✓ Apple Silicon MPS acceleration enabled!")
-    elif device == "cuda":
+    if device == "cuda":
         print("   ✓ NVIDIA CUDA acceleration enabled!")
     else:
-        print("   ⚠️ Running on CPU (slower)")
+        print("   ✓ Running on CPU (stable for sentence-transformers)")
+        if torch.backends.mps.is_available():
+            print("   ℹ️  MPS available but disabled (bus error workaround)")
     
     # Load configuration
     config = load_config()
