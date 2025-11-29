@@ -153,10 +153,19 @@ class NewsAgent:
         print(f"   Target: {target_col}")
         
         # Time-series split
+        # Try date-based split first, fall back to percentage if data is limited
         train_cutoff = pd.to_datetime("2023-01-01")
         
         train_mask = df["date"] < train_cutoff
         test_mask = df["date"] >= train_cutoff
+        
+        # If date split doesn't work, use 70/30 split
+        if train_mask.sum() < 10 or test_mask.sum() < 5:
+            print("\n   ⚠️ Limited date range - using 70/30 split instead")
+            split_idx = int(len(df) * 0.7)
+            train_mask = df.index < split_idx
+            test_mask = df.index >= split_idx
+            train_cutoff = df.loc[split_idx, "date"] if split_idx < len(df) else df["date"].max()
         
         X_train = df.loc[train_mask, self.feature_cols]
         y_train = df.loc[train_mask, target_col]
@@ -164,11 +173,12 @@ class NewsAgent:
         y_test = df.loc[test_mask, target_col]
         
         print(f"\n   📊 Split:")
-        print(f"      Train: {len(X_train):,} samples (< 2023-01-01)")
-        print(f"      Test:  {len(X_test):,} samples (>= 2023-01-01)")
+        print(f"      Train: {len(X_train):,} samples")
+        print(f"      Test:  {len(X_test):,} samples")
+        print(f"      Cutoff: {train_cutoff}")
         
-        if len(X_train) == 0 or len(X_test) == 0:
-            raise ValueError("Train or test set is empty! Check date range.")
+        if len(X_train) < 5 or len(X_test) < 3:
+            raise ValueError("Not enough data for training! Need more samples.")
         
         # Start MLflow run
         with self.tracker.start_run(run_name="news_agent_feasibility"):
