@@ -1,20 +1,21 @@
 """
-TitanCoordinator: Ridge Regression with Momentum + Calendar Features
+TitanCoordinator: Ridge Regression with Robustness Upgrades
 
-Phase 12: Structural Optimization - Target 23%+ R²
+Phase 15: The Robustness Upgrade
 
-Key Optimizations (from audit):
-- Model: Ridge(alpha=0.1) outperforms ElasticNet
-- Calendar: is_friday, is_monday, is_q4 add ~7% R²
-- Momentum: vol_ma5 (5-day rolling mean) adds ~3% R²
-- Simple features beat complex ones
+Key Optimizations (from optimization audit):
+- Model: Ridge(alpha=100.0) - stronger regularization
+- Winsorization: Clip y_train at 2nd/98th percentiles
+- Momentum: vol_ma5, vol_ma10, vol_std5
+- Calendar: is_friday, is_monday, is_q4
 
 Architecture:
-- Inputs: tech_pred + news_risk_score + momentum + calendar
-- Model: Ridge with light regularization (alpha=0.1)
+- Inputs: tech_pred + news_risk + retail_risk + momentum + calendar
+- Model: Ridge with strong regularization (alpha=100)
+- Winsorization: Applied to training target only
 - Validation: Purged Walk-Forward (Train < 2023, Test >= 2023)
 
-Expected: 23%+ R² (validated in audit)
+Target: 30%+ R² (with winsorization)
 
 Usage:
     from src.coordinator.fusion import TitanCoordinator
@@ -38,30 +39,44 @@ from src.utils.tracker import MLTracker
 
 class TitanCoordinator:
     """
-    Ridge Coordinator with Momentum + Calendar Features (Phase 12).
+    Ridge Coordinator with Robustness Upgrades (Phase 15).
     
     Key Optimizations:
-    - Ridge(alpha=0.1) instead of ElasticNet
-    - Added vol_ma5 (5-day volatility momentum)
-    - Calendar features: is_friday, is_monday, is_q4
-    - Direct shock_index feature for news impact
+    - Ridge(alpha=100) for stronger regularization
+    - Winsorization at 2%/98% percentiles
+    - Enhanced momentum: vol_ma5, vol_ma10, vol_std5
+    - Full calendar: is_friday, is_monday, is_q4
     
     Full Feature List:
     - tech_pred: HAR-RV prediction
     - news_risk_score: Probability of extreme event (0-1)
-    - VIX_close: Market fear level
+    - retail_risk_score: Retail hype risk (0-1)
     - is_friday, is_monday, is_q4: Calendar effects
-    - vol_ma5: 5-day rolling mean of volatility (momentum)
-    - shock_index: News shock intensity
+    - vol_ma5, vol_ma10: Rolling mean volatility
+    - vol_std5: Rolling std volatility
+    - news_x_retail: Interaction term
     """
     
-    def __init__(self, experiment_name: str = "titan_v8_coordinator_phase12"):
-        """Initialize TitanCoordinator with Ridge."""
-        # Ridge with light regularization (from audit: α=0.1 is optimal)
+    def __init__(self, experiment_name: str = "titan_v8_coordinator_phase15",
+                 alpha: float = 100.0,
+                 winsorize_pct: float = 0.02):
+        """
+        Initialize TitanCoordinator with Phase 15 settings.
+        
+        Args:
+            experiment_name: MLflow experiment name
+            alpha: Ridge regularization strength (default 100.0)
+            winsorize_pct: Percentile for winsorization (default 0.02 = 2%)
+        """
         self.model = Ridge(
-            alpha=0.1,
+            alpha=alpha,
             fit_intercept=True
         )
+        
+        self.alpha = alpha
+        self.winsorize_pct = winsorize_pct
+        self.winsorize_lower = None
+        self.winsorize_upper = None
         
         self.tracker = MLTracker(experiment_name)
         self.feature_cols = None
@@ -70,34 +85,36 @@ class TitanCoordinator:
         self.test_metrics = None
         self.baseline_metrics = None
         self.sector_metrics = None
+        self.df = None
         
     def get_feature_columns(self) -> list:
         """
-        Define coordinator input features.
+        Define coordinator input features (Phase 15 optimized).
         
-        Phase 12 optimized feature set based on audit:
+        Features validated by optimization audit:
         - Agent predictions
-        - Calendar effects (critical: +7% R²)
-        - Momentum (important: +3% R²)
-        - VIX context
-        - News shock
+        - Calendar effects
+        - Enhanced momentum (vol_ma5, vol_ma10, vol_std5)
+        - Interaction terms
         """
         return [
             # Agent predictions
             "tech_pred",           # HAR-RV baseline
-            "news_risk_score",     # Probability of extreme event
+            "news_risk_score",     # Semantic risk
+            "retail_risk_score",   # Behavioral risk
             
-            # Calendar features (KEY: +7% R²)
+            # Calendar features
             "is_friday",           # Pre-weekend effect
             "is_monday",           # Start-of-week
             "is_q4",               # Year-end seasonality
             
-            # Momentum (KEY: +3% R²)
-            "vol_ma5",             # 5-day rolling volatility
+            # Enhanced momentum (KEY from audit)
+            "vol_ma5",             # 5-day rolling mean
+            "vol_ma10",            # 10-day rolling mean
+            "vol_std5",            # 5-day rolling std
             
-            # Context
-            "VIX_close",           # Market fear
-            "shock_index",         # News shock intensity
+            # Interaction
+            "news_x_retail",       # News × Retail interaction
         ]
     
     def add_calendar_features(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -119,37 +136,42 @@ class TitanCoordinator:
     
     def add_momentum_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Add momentum features.
+        Add enhanced momentum features.
         
-        vol_ma5: 5-day rolling mean of target_log_var (shifted by 1 to avoid leakage)
-        Logic: Volatility clusters - if recent days were volatile, today likely is too.
+        Phase 15 additions:
+        - vol_ma5: 5-day rolling mean
+        - vol_ma10: 10-day rolling mean (NEW)
+        - vol_std5: 5-day rolling std (NEW)
         """
         df = df.copy()
         
-        print("   📈 Adding momentum features...")
+        print("   📈 Adding enhanced momentum features...")
         
-        # Need target_log_var for momentum calculation
-        if "target_log_var" not in df.columns and "realized_vol" in df.columns:
-            # Compute from realized_vol if needed
-            df["target_log_var"] = np.log(df["realized_vol"].clip(lower=1e-10))
+        if "target_log_var" not in df.columns:
+            print("      ⚠️ target_log_var not found, skipping momentum")
+            return df
         
-        if "target_log_var" in df.columns:
-            # Calculate per-ticker momentum
-            for ticker in df["ticker"].unique():
-                mask = df["ticker"] == ticker
-                # 5-day rolling mean, shifted by 1 to avoid leakage
-                df.loc[mask, "vol_ma5"] = (
-                    df.loc[mask, "target_log_var"]
-                    .rolling(5, min_periods=1)
-                    .mean()
-                    .shift(1)
-                )
+        for ticker in df["ticker"].unique():
+            mask = df["ticker"] == ticker
+            ticker_data = df.loc[mask, "target_log_var"]
             
-            df["vol_ma5"] = df["vol_ma5"].fillna(df["target_log_var"].mean())
-            print(f"      ✓ vol_ma5: 5-day rolling mean volatility")
-        else:
-            df["vol_ma5"] = 0
-            print(f"      ⚠️ vol_ma5: Could not compute (no target_log_var)")
+            # 5-day rolling mean (shifted to avoid leakage)
+            df.loc[mask, "vol_ma5"] = ticker_data.rolling(5, min_periods=1).mean().shift(1)
+            
+            # 10-day rolling mean (NEW)
+            df.loc[mask, "vol_ma10"] = ticker_data.rolling(10, min_periods=1).mean().shift(1)
+            
+            # 5-day rolling std (NEW)
+            df.loc[mask, "vol_std5"] = ticker_data.rolling(5, min_periods=2).std().shift(1)
+        
+        # Fill NaN with defaults
+        df["vol_ma5"] = df["vol_ma5"].fillna(df["target_log_var"].mean())
+        df["vol_ma10"] = df["vol_ma10"].fillna(df["target_log_var"].mean())
+        df["vol_std5"] = df["vol_std5"].fillna(0)
+        
+        print(f"      ✓ vol_ma5: 5-day rolling mean")
+        print(f"      ✓ vol_ma10: 10-day rolling mean")
+        print(f"      ✓ vol_std5: 5-day rolling std")
         
         return df
     
@@ -157,6 +179,7 @@ class TitanCoordinator:
         self,
         tech_agent=None,
         news_agent=None,
+        retail_agent=None,
         targets_df: pd.DataFrame = None,
         news_features_df: pd.DataFrame = None,
         residuals_df: pd.DataFrame = None
@@ -164,9 +187,9 @@ class TitanCoordinator:
         """
         Prepare a unified dataset with all features.
         
-        Phase 12: Simplified to use pre-computed predictions.
+        Phase 15: Enhanced with momentum and calendar features.
         """
-        print("\n📊 Preparing unified predictions dataset...")
+        print("\n📊 Preparing unified predictions dataset (Phase 15)...")
         
         # Start with targets
         if targets_df is not None:
@@ -182,30 +205,23 @@ class TitanCoordinator:
         # Sort
         df = df.sort_values(["ticker", "date"]).reset_index(drop=True)
         
-        # ================================================
-        # Add Calendar Features (KEY: +7% R²)
-        # ================================================
+        # Add Calendar Features
         print("   🗓️ Adding calendar features...")
         df = self.add_calendar_features(df)
         print(f"      ✓ is_friday: {df['is_friday'].sum()} days")
         print(f"      ✓ is_monday: {df['is_monday'].sum()} days")
         print(f"      ✓ is_q4: {df['is_q4'].sum()} days")
         
-        # ================================================
-        # Add Momentum Features (KEY: +3% R²)
-        # ================================================
+        # Add Enhanced Momentum Features
         df = self.add_momentum_features(df)
         
-        # ================================================
         # Add tech_pred from residuals
-        # ================================================
         if residuals_df is not None:
             res_df = residuals_df.copy()
             res_df["date"] = pd.to_datetime(res_df["date"]).dt.tz_localize(None)
             if res_df["ticker"].dtype.name == "category":
                 res_df["ticker"] = res_df["ticker"].astype(str)
             
-            # Get tech prediction
             if "pred_tech_excess" in res_df.columns:
                 df = pd.merge(
                     df, 
@@ -213,7 +229,6 @@ class TitanCoordinator:
                     on=["date", "ticker"], 
                     how="left"
                 )
-                # Convert excess prediction to total prediction
                 if "seasonal_component" in df.columns:
                     df["tech_pred"] = df["pred_tech_excess"] + df["seasonal_component"]
                 else:
@@ -226,14 +241,15 @@ class TitanCoordinator:
             df["tech_pred"] = df["target_log_var"].mean() if "target_log_var" in df.columns else 0
             print(f"   ⚠️ No residuals provided, using mean tech_pred")
         
-        # ================================================
-        # Add news_risk_score (from news classifier)
-        # ================================================
+        # Add news_risk_score
         if news_agent is not None and hasattr(news_agent, 'df') and news_agent.df is not None:
             news_df = news_agent.df.copy()
             news_df["date"] = pd.to_datetime(news_df["date"]).dt.tz_localize(None)
             
-            if "news_risk_score" in news_df.columns:
+            if hasattr(news_agent, 'predict'):
+                risk_scores = news_agent.predict(news_df)
+                news_df["news_risk_score"] = risk_scores
+                
                 df = pd.merge(
                     df,
                     news_df[["date", "ticker", "news_risk_score"]],
@@ -242,66 +258,57 @@ class TitanCoordinator:
                 )
                 df["news_risk_score"] = df["news_risk_score"].fillna(0.2)
                 print(f"   ✓ Added news_risk_score from classifier")
-            elif hasattr(news_agent, 'predict_proba'):
-                # Generate risk scores
-                risk_scores = news_agent.predict_proba(news_df)
-                news_df["news_risk_score"] = risk_scores
-                df = pd.merge(
-                    df,
-                    news_df[["date", "ticker", "news_risk_score"]],
-                    on=["date", "ticker"],
-                    how="left"
-                )
-                df["news_risk_score"] = df["news_risk_score"].fillna(0.2)
-                print(f"   ✓ Added news_risk_score (generated)")
             else:
                 df["news_risk_score"] = 0.2
-                print(f"   ⚠️ No news_risk_score, using default 0.2")
         else:
             df["news_risk_score"] = 0.2
             print(f"   ⚠️ NewsAgent not provided, using default 0.2")
         
-        # ================================================
-        # Add shock_index from news features
-        # ================================================
-        if news_features_df is not None:
-            nf_df = news_features_df.copy()
-            nf_df["date"] = pd.to_datetime(nf_df["date"]).dt.tz_localize(None)
-            if nf_df["ticker"].dtype.name == "category":
-                nf_df["ticker"] = nf_df["ticker"].astype(str)
+        # Add retail_risk_score
+        if retail_agent is not None and hasattr(retail_agent, 'df') and retail_agent.df is not None:
+            retail_df = retail_agent.df.copy()
+            retail_df["date"] = pd.to_datetime(retail_df["date"]).dt.tz_localize(None)
             
-            if "shock_index" in nf_df.columns:
+            if hasattr(retail_agent, 'predict_proba'):
+                retail_risk = retail_agent.predict_proba(retail_df)
+                retail_df["retail_risk_score"] = retail_risk
+                
                 df = pd.merge(
                     df,
-                    nf_df[["date", "ticker", "shock_index"]],
+                    retail_df[["date", "ticker", "retail_risk_score"]],
                     on=["date", "ticker"],
                     how="left"
                 )
-                df["shock_index"] = df["shock_index"].fillna(0)
-                print(f"   ✓ Added shock_index from news features")
+                df["retail_risk_score"] = df["retail_risk_score"].fillna(0.2)
+                print(f"   ✓ Added retail_risk_score from classifier")
             else:
-                df["shock_index"] = 0
-                print(f"   ⚠️ No shock_index in news features")
+                df["retail_risk_score"] = 0.2
         else:
-            df["shock_index"] = 0
-            print(f"   ⚠️ No news_features provided, shock_index=0")
+            # Try loading from saved predictions
+            retail_path = Path("data/processed/retail_predictions.parquet")
+            if retail_path.exists():
+                retail_preds = pd.read_parquet(retail_path)
+                retail_preds["date"] = pd.to_datetime(retail_preds["date"]).dt.tz_localize(None)
+                if retail_preds["ticker"].dtype.name == "category":
+                    retail_preds["ticker"] = retail_preds["ticker"].astype(str)
+                
+                df = pd.merge(
+                    df,
+                    retail_preds[["date", "ticker", "retail_risk_score"]],
+                    on=["date", "ticker"],
+                    how="left"
+                )
+                df["retail_risk_score"] = df["retail_risk_score"].fillna(0.2)
+                print(f"   ✓ Loaded retail_risk_score from saved predictions")
+            else:
+                df["retail_risk_score"] = 0.2
+                print(f"   ⚠️ RetailAgent not provided, using default 0.2")
         
-        # ================================================
-        # Ensure VIX is present
-        # ================================================
-        if "VIX_close" not in df.columns:
-            try:
-                vix = pd.read_parquet("data/processed/vix.parquet")
-                vix["date"] = pd.to_datetime(vix["date"]).dt.tz_localize(None)
-                df = pd.merge(df, vix[["date", "VIX_close"]], on="date", how="left")
-                df["VIX_close"] = df["VIX_close"].fillna(20)
-            except:
-                df["VIX_close"] = 20
-        df["VIX_close"] = df["VIX_close"].ffill().fillna(20)
+        # Create interaction feature
+        df["news_x_retail"] = df["news_risk_score"] * df["retail_risk_score"]
+        print(f"   ✓ Created news_x_retail interaction")
         
-        # ================================================
-        # Add sector for analysis
-        # ================================================
+        # Add sector
         SECTOR_MAP = {
             'AAPL': 'Tech', 'MSFT': 'Tech', 'NVDA': 'Tech',
             'JPM': 'Finance', 'BAC': 'Finance', 'V': 'Finance',
@@ -315,22 +322,47 @@ class TitanCoordinator:
         # Drop NaN in target
         df = df.dropna(subset=[self.target_col])
         
+        self.df = df
+        
         print(f"\n   📊 Final dataset: {len(df):,} rows")
-        print(f"   Features available: {[f for f in self.get_feature_columns() if f in df.columns]}")
+        print(f"   Features: {[f for f in self.get_feature_columns() if f in df.columns]}")
         
         return df
     
+    def winsorize_target(self, y: pd.Series, fit: bool = True) -> pd.Series:
+        """
+        Apply winsorization to target variable.
+        
+        Phase 15 key optimization: Clip outliers at 2nd/98th percentiles.
+        This dramatically improves R² by reducing noise from extreme days.
+        
+        Args:
+            y: Target series
+            fit: If True, compute percentiles. If False, use stored values.
+            
+        Returns:
+            Winsorized target series
+        """
+        if fit:
+            self.winsorize_lower = y.quantile(self.winsorize_pct)
+            self.winsorize_upper = y.quantile(1 - self.winsorize_pct)
+        
+        y_winsorized = y.clip(lower=self.winsorize_lower, upper=self.winsorize_upper)
+        
+        return y_winsorized
+    
     def train(self, df: pd.DataFrame) -> dict:
         """
-        Train the Ridge coordinator.
+        Train the Ridge coordinator with Phase 15 optimizations.
         
-        Uses Purged Walk-Forward validation:
-        - Train: data < 2023-01-01
-        - Test: data >= 2023-01-01
+        Key improvements:
+        - Winsorization of y_train at 2%/98% percentiles
+        - Ridge(alpha=100) for stronger regularization
+        - Enhanced momentum features
         """
         print("\n" + "=" * 70)
-        print("🎯 TRAINING TITAN COORDINATOR (Ridge + Momentum + Calendar)")
-        print("   Phase 12: Structural Optimization")
+        print(f"🎯 TRAINING TITAN COORDINATOR (Phase 15: Robustness Upgrade)")
+        print(f"   Ridge(α={self.alpha}) + Winsorization({self.winsorize_pct:.0%})")
         print("=" * 70)
         
         self.feature_cols = [f for f in self.get_feature_columns() if f in df.columns]
@@ -354,57 +386,86 @@ class TitanCoordinator:
         X_test = test[self.feature_cols].fillna(0)
         y_test = test[self.target_col]
         
+        # =====================================================
+        # WINSORIZATION (Phase 15 Key Optimization)
+        # =====================================================
+        print(f"\n   🔧 Applying Winsorization to y_train...")
+        y_train_original = y_train.copy()
+        y_train_winsorized = self.winsorize_target(y_train, fit=True)
+        
+        n_clipped = (y_train != y_train_winsorized).sum()
+        print(f"      Lower bound: {self.winsorize_lower:.4f}")
+        print(f"      Upper bound: {self.winsorize_upper:.4f}")
+        print(f"      Clipped: {n_clipped:,} samples ({n_clipped/len(y_train)*100:.1f}%)")
+        
         # Calculate baseline (tech_pred only)
         if "tech_pred" in df.columns:
             baseline_r2 = r2_score(y_test, test["tech_pred"])
             baseline_rmse = np.sqrt(mean_squared_error(y_test, test["tech_pred"]))
             self.baseline_metrics = {"R2": baseline_r2, "RMSE": baseline_rmse}
-            print(f"\n   📈 Baseline (HAR-RV only):")
+            print(f"\n   📈 Baseline (HAR only):")
             print(f"      Test R²:  {baseline_r2:.4f} ({baseline_r2*100:.2f}%)")
             print(f"      Test RMSE: {baseline_rmse:.4f}")
         
-        # Train Ridge
-        print("\n   🔧 Training Ridge Coordinator...")
-        print(f"      Alpha: 0.1")
+        # Train Ridge on WINSORIZED target
+        print(f"\n   🔧 Training Ridge(α={self.alpha}) on winsorized target...")
         
-        with self.tracker.start_run(run_name="titan_coordinator_ridge_phase12"):
+        with self.tracker.start_run(run_name="titan_coordinator_phase15"):
             self.tracker.log_params({
                 "model": "Ridge",
-                "alpha": 0.1,
+                "alpha": self.alpha,
+                "winsorize_pct": self.winsorize_pct,
                 "n_features": len(self.feature_cols),
                 "features": self.feature_cols,
                 "n_train": len(train),
                 "n_test": len(test),
-                "phase": 12
+                "phase": 15
             })
             
-            # Fit Ridge
-            self.model.fit(X_train, y_train)
+            # Fit on winsorized training data
+            self.model.fit(X_train, y_train_winsorized)
             
+            # Predict
             y_train_pred = self.model.predict(X_train)
             y_test_pred = self.model.predict(X_test)
             
-            self.train_metrics = self.tracker.log_metrics(
-                y_train.values, y_train_pred, step=0
-            )
-            self.test_metrics = self.tracker.log_metrics(
-                y_test.values, y_test_pred, step=1
-            )
+            # Metrics on ORIGINAL test data (not winsorized)
+            self.train_metrics = {
+                "R2": r2_score(y_train_winsorized, y_train_pred),
+                "RMSE": np.sqrt(mean_squared_error(y_train_winsorized, y_train_pred)),
+                "MAE": mean_absolute_error(y_train_winsorized, y_train_pred),
+            }
             
-            self.tracker.log_model(self.model, "titan_coordinator_ridge")
+            # Test metrics on ORIGINAL y_test (not winsorized)
+            self.test_metrics = {
+                "R2": r2_score(y_test, y_test_pred),
+                "RMSE": np.sqrt(mean_squared_error(y_test, y_test_pred)),
+                "MAE": mean_absolute_error(y_test, y_test_pred),
+            }
+            
+            # Also compute "fair" test R² on winsorized test (for comparison)
+            y_test_winsorized = self.winsorize_target(y_test, fit=False)
+            test_r2_winsorized = r2_score(y_test_winsorized, y_test_pred)
+            
+            self.tracker.log_metrics(y_test.values, y_test_pred, step=0)
+            self.tracker.log_model(self.model, "titan_coordinator_phase15")
         
         # Print results
         print(f"\n   📈 Coordinator Results:")
-        print(f"   {'Metric':<25} {'Train':>10} {'Test':>10}")
-        print("   " + "-" * 47)
-        print(f"   {'RMSE':<25} {self.train_metrics['RMSE']:>10.4f} {self.test_metrics['RMSE']:>10.4f}")
-        print(f"   {'MAE':<25} {self.train_metrics['MAE']:>10.4f} {self.test_metrics['MAE']:>10.4f}")
-        print(f"   {'R²':<25} {self.train_metrics['R2']:>10.4f} {self.test_metrics['R2']:>10.4f}")
-        print(f"   {'Directional Accuracy':<25} {self.train_metrics['Directional_Accuracy']:>9.1f}% {self.test_metrics['Directional_Accuracy']:>9.1f}%")
+        print(f"   {'Metric':<25} {'Train':>12} {'Test':>12} {'Test (Winsorized)':>18}")
+        print("   " + "-" * 70)
+        print(f"   {'R²':<25} {self.train_metrics['R2']:>12.4f} {self.test_metrics['R2']:>12.4f} {test_r2_winsorized:>18.4f}")
+        print(f"   {'RMSE':<25} {self.train_metrics['RMSE']:>12.4f} {self.test_metrics['RMSE']:>12.4f}")
+        print(f"   {'MAE':<25} {self.train_metrics['MAE']:>12.4f} {self.test_metrics['MAE']:>12.4f}")
+        
+        # Improvement
+        if self.baseline_metrics:
+            improvement = (self.test_metrics['R2'] - self.baseline_metrics['R2']) * 100
+            print(f"\n   📈 Improvement over HAR baseline: {improvement:+.2f}%")
         
         # Print coefficients
         print(f"\n   📊 Ridge Coefficients:")
-        print("   " + "-" * 45)
+        print("   " + "-" * 55)
         coef_df = pd.DataFrame({
             "feature": self.feature_cols,
             "coefficient": self.model.coef_
@@ -413,12 +474,13 @@ class TitanCoordinator:
         coef_df = coef_df.sort_values("abs_coef", ascending=False)
         
         for _, row in coef_df.iterrows():
-            print(f"      {row['feature']:20s}: {row['coefficient']:+.4f}")
-        print(f"      {'Intercept':20s}: {self.model.intercept_:+.4f}")
+            status = "✅" if abs(row["coefficient"]) < 1.0 else "⚠️"
+            print(f"      {row['feature']:25s}: {row['coefficient']:>+10.4f} {status}")
+        print(f"      {'Intercept':25s}: {self.model.intercept_:>+10.4f}")
         
         # Calculate sector-specific R²
         print(f"\n   📊 Sector Breakdown:")
-        print("   " + "-" * 45)
+        print("   " + "-" * 50)
         
         self.sector_metrics = {}
         for sector in test["sector"].dropna().unique():
@@ -426,11 +488,13 @@ class TitanCoordinator:
             if sector_mask.sum() > 50:
                 sector_r2 = r2_score(y_test[sector_mask], y_test_pred[sector_mask])
                 self.sector_metrics[sector] = sector_r2
-                print(f"      {sector:15s}: R² = {sector_r2:.4f} ({sector_r2*100:.2f}%)")
+                marker = " ⭐" if sector_r2 >= 0.30 else ""
+                print(f"      {sector:15s}: R² = {sector_r2:.4f} ({sector_r2*100:.2f}%){marker}")
         
         return {
             "train": self.train_metrics,
             "test": self.test_metrics,
+            "test_winsorized_r2": test_r2_winsorized,
             "baseline": self.baseline_metrics,
             "sector": self.sector_metrics
         }
@@ -465,7 +529,7 @@ class TitanCoordinator:
     def print_comparison_table(self):
         """Print the final comparison table."""
         print("\n" + "=" * 70)
-        print("💰 PHASE 12 RESULTS: STRUCTURAL OPTIMIZATION")
+        print("💰 PHASE 15 RESULTS: ROBUSTNESS UPGRADE")
         print("=" * 70)
         
         if self.baseline_metrics is None or self.test_metrics is None:
@@ -484,14 +548,16 @@ class TitanCoordinator:
    │ Model                   │ Test R²        │ Test RMSE      │
    ├─────────────────────────┼────────────────┼────────────────┤
    │ Baseline (HAR-RV)       │ {baseline_r2:>12.4f}   │ {baseline_rmse:>12.4f}   │
-   │ Titan V8 (Phase 12)     │ {titan_r2:>12.4f}   │ {titan_rmse:>12.4f}   │
+   │ Titan V8 (Phase 15)     │ {titan_r2:>12.4f}   │ {titan_rmse:>12.4f}   │
    ├─────────────────────────┼────────────────┼────────────────┤
    │ Improvement             │ {improvement_r2_pct:>+11.2f}%   │                │
    └─────────────────────────┴────────────────┴────────────────┘
         """)
         
-        if titan_r2 >= 0.23:
-            print("   🏆 TARGET ACHIEVED: 23%+ R²!")
+        if titan_r2 >= 0.30:
+            print("   🏆 TARGET ACHIEVED: 30%+ R²!")
+        elif titan_r2 >= 0.25:
+            print("   ✅ EXCELLENT: 25%+ R²!")
         elif titan_r2 >= 0.20:
             print("   ✅ STRONG: 20%+ R²!")
         elif titan_r2 > baseline_r2:
@@ -502,10 +568,10 @@ class TitanCoordinator:
         # Sector analysis
         if self.sector_metrics:
             print("\n   📊 SECTOR ANALYSIS:")
-            print("   " + "-" * 40)
+            print("   " + "-" * 45)
             sorted_sectors = sorted(self.sector_metrics.items(), key=lambda x: x[1], reverse=True)
             for sector, r2 in sorted_sectors:
-                marker = " ⭐" if r2 > 0.25 else ""
+                marker = " ⭐" if r2 >= 0.30 else ""
                 print(f"      {sector:15s}: {r2*100:.2f}%{marker}")
         
         print("=" * 70)
@@ -514,11 +580,12 @@ class TitanCoordinator:
 def main():
     """Test the TitanCoordinator."""
     print("\n" + "=" * 70)
-    print("🚀 TITAN COORDINATOR (Phase 12: Ridge + Momentum + Calendar)")
+    print("🚀 TITAN COORDINATOR (Phase 15: Robustness Upgrade)")
     print("=" * 70)
     
     coordinator = TitanCoordinator()
-    print(f"   Model: Ridge(alpha=0.1)")
+    print(f"   Model: Ridge(alpha={coordinator.alpha})")
+    print(f"   Winsorization: {coordinator.winsorize_pct:.0%}")
     print(f"   Features: {coordinator.get_feature_columns()}")
     print("   ✅ Coordinator initialized successfully")
     print("\n   Run scripts/run_final_optimization.py for full training")
