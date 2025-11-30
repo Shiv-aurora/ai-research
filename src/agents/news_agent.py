@@ -76,23 +76,26 @@ def calculate_decay_kernel(series: pd.Series, group_col: pd.Series = None) -> pd
 class NewsAgent:
     """
     NewsAgent with Exponential Decay Kernel (Phase 6 Fix).
+    Phase 7: De-seasonalized news features support.
     
     Key Changes:
     - REMOVED: All discrete lags (_lag1, _lag2, _lag3, _lag5)
     - REMOVED: Rolling features (_roll3, _roll7)
     - ADDED: Decay kernel features (news_memory, shock_memory)
+    - Phase 7: De-seasonalize news_count by day_of_week
     
     The decay kernel captures the persistence of news effects
     without contaminating with weekly seasonality.
     
     Features:
-        - news_memory: Decay kernel of news_count
+        - news_memory: Decay kernel of news_count (or news_count_excess)
         - shock_memory: Decay kernel of shock_index
         - sentiment_avg: Current sentiment
         - PCA features: Topic embeddings
     """
     
-    def __init__(self, experiment_name: str = "titan_v8_news_agent_v2"):
+    def __init__(self, experiment_name: str = "titan_v8_news_agent_v2",
+                 use_deseasonalized: bool = False):
         """Initialize NewsAgent with decay kernel approach."""
         # Robust LightGBM parameters
         self.model = LGBMRegressor(
@@ -116,6 +119,10 @@ class NewsAgent:
         self.test_metrics = None
         self.df = None
         
+        # Phase 7: De-seasonalization support
+        self.use_deseasonalized = use_deseasonalized
+        self.news_seasonal_map = None
+        
     def load_and_merge_data(self) -> pd.DataFrame:
         """
         Load data and engineer DECAY KERNEL features.
@@ -124,6 +131,9 @@ class NewsAgent:
         - NO discrete lags (removed _lag1, _lag2, _lag3, _lag5)
         - NO rolling features (removed _roll3, _roll7)
         - YES decay kernel features (news_memory, shock_memory)
+        
+        Phase 7 Addition:
+        - De-seasonalize news_count by (ticker, day_of_week)
         
         Returns:
             DataFrame with decay kernel features
@@ -165,15 +175,45 @@ class NewsAgent:
         print(f"   ✓ Merged: {len(merged):,} rows")
         
         # =============================================
+        # PHASE 7: DE-SEASONALIZE NEWS FEATURES
+        # =============================================
+        if self.use_deseasonalized:
+            print("\n   🔧 De-seasonalizing news features...")
+            
+            # Add day of week
+            merged["day_of_week"] = merged["date"].dt.dayofweek
+            
+            # Calculate median news_count per (ticker, day_of_week)
+            news_seasonal = merged.groupby(["ticker", "day_of_week"])["news_count"].median()
+            self.news_seasonal_map = news_seasonal.to_dict()
+            
+            # Apply de-seasonalization
+            def get_news_seasonal(row):
+                return self.news_seasonal_map.get((row["ticker"], row["day_of_week"]), row["news_count"])
+            
+            merged["news_count_seasonal"] = merged.apply(get_news_seasonal, axis=1)
+            merged["news_count_excess"] = merged["news_count"] - merged["news_count_seasonal"]
+            
+            print(f"      ✓ Created news_count_excess (de-seasonalized)")
+            print(f"      Original news_count std: {merged['news_count'].std():.4f}")
+            print(f"      Excess news_count std:   {merged['news_count_excess'].std():.4f}")
+        
+        # =============================================
         # FEATURE ENGINEERING: DECAY KERNEL (Phase 6)
         # =============================================
         print("\n   🔧 Engineering DECAY KERNEL features...")
         print("      Formula: 0.50*t-1 + 0.25*t-2 + 0.15*t-3 + 0.10*t-4")
         print("      (Stops at t-4 to avoid weekly echo at t-5)")
         
+        # Phase 7: Use de-seasonalized news_count if available
+        news_col = "news_count_excess" if self.use_deseasonalized and "news_count_excess" in merged.columns else "news_count"
+        
+        if self.use_deseasonalized:
+            print(f"      ✓ Using de-seasonalized: {news_col}")
+        
         # Apply decay kernel to key features
         merged["news_memory"] = calculate_decay_kernel(
-            merged["news_count"], 
+            merged[news_col], 
             group_col=merged["ticker"]
         )
         

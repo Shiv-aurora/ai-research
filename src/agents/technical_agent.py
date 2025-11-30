@@ -1,6 +1,7 @@
 """
 TechnicalAgent: HAR-RV Volatility Prediction Model
 Phase 2: Technical Baseline (Anchor Model)
+Phase 7: De-seasonalized mode (target_excess)
 
 This agent implements the Heterogeneous Autoregressive Realized Volatility (HAR-RV)
 model which captures volatility persistence across multiple time horizons.
@@ -43,19 +44,22 @@ class TechnicalAgent:
         - rsi_14: RSI momentum indicator
     
     Target:
-        - target_log_var: log(next_day_realized_variance)
+        - target_log_var: log(next_day_realized_variance) [default]
+        - target_excess: de-seasonalized target [Phase 7]
     
     Model:
         - Ridge Regression (L2 regularization)
         - Why Ridge: Volatility is autoregressive/linear; GBMs overfit trends
     """
     
-    def __init__(self, experiment_name: str = "titan_v8_technical_agent"):
+    def __init__(self, experiment_name: str = "titan_v8_technical_agent", 
+                 use_deseasonalized: bool = False):
         """
         Initialize the TechnicalAgent with Ridge regression.
         
         Args:
             experiment_name: MLflow experiment name
+            use_deseasonalized: If True, train on target_excess instead of target_log_var
         """
         self.model = Ridge(alpha=1.0)
         self.tracker = MLTracker(experiment_name)
@@ -63,7 +67,11 @@ class TechnicalAgent:
             'rv_lag_1', 'rv_lag_5', 'rv_lag_22',
             'returns_sq_lag_1', 'VIX_close', 'rsi_14'
         ]
-        self.target_col = 'target_log_var'
+        
+        # Phase 7: Support de-seasonalized mode
+        self.use_deseasonalized = use_deseasonalized
+        self.target_col = 'target_excess' if use_deseasonalized else 'target_log_var'
+        
         self.df = None
         self.train_metrics = None
         self.test_metrics = None
@@ -77,10 +85,22 @@ class TechnicalAgent:
         """
         print("\n📂 Loading and processing data...")
         
-        # Load targets
-        targets_path = Path("data/processed/targets.parquet")
+        # Phase 7: Load de-seasonalized data if available
+        if self.use_deseasonalized:
+            targets_path = Path("data/processed/targets_deseasonalized.parquet")
+            if not targets_path.exists():
+                print("   ⚠️ De-seasonalized data not found, falling back to original")
+                targets_path = Path("data/processed/targets.parquet")
+                self.target_col = 'target_log_var'
+                self.use_deseasonalized = False
+        else:
+            targets_path = Path("data/processed/targets.parquet")
+        
         df = pd.read_parquet(targets_path)
-        print(f"   ✓ Loaded {len(df):,} rows")
+        print(f"   ✓ Loaded {len(df):,} rows from {targets_path.name}")
+        
+        if self.use_deseasonalized:
+            print(f"   ✓ Using de-seasonalized target: {self.target_col}")
         
         # Ensure proper types
         df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
@@ -162,13 +182,15 @@ class TechnicalAgent:
         ).reset_index(drop=True)
         
         # Clean infinity values in target (from log(0))
-        inf_count = np.isinf(df[self.target_col]).sum()
-        if inf_count > 0:
-            print(f"   ⚠️ Cleaning {inf_count} infinity values in target...")
-            df = df.replace([np.inf, -np.inf], np.nan)
+        if self.target_col in df.columns:
+            inf_count = np.isinf(df[self.target_col]).sum()
+            if inf_count > 0:
+                print(f"   ⚠️ Cleaning {inf_count} infinity values in target...")
+                df = df.replace([np.inf, -np.inf], np.nan)
         
         # Drop rows with NaN in features or target
         required_cols = self.feature_cols + [self.target_col]
+        required_cols = [c for c in required_cols if c in df.columns]
         before = len(df)
         df = df.dropna(subset=required_cols)
         after = len(df)
@@ -199,7 +221,8 @@ class TechnicalAgent:
         if df is None:
             raise ValueError("No data loaded! Call load_and_process_data first.")
         
-        print("\n🎯 Training TechnicalAgent (HAR-RV)...")
+        mode = "EXCESS" if self.use_deseasonalized else "TOTAL"
+        print(f"\n🎯 Training TechnicalAgent (HAR-RV) - {mode} MODE...")
         
         # Time-series split
         train_cutoff = pd.to_datetime("2023-01-01")
@@ -224,9 +247,11 @@ class TechnicalAgent:
         print(f"      Train: {len(X_train):,} samples")
         print(f"      Test:  {len(X_test):,} samples")
         print(f"      Cutoff: {train_cutoff}")
+        print(f"      Target: {self.target_col}")
         
         # Start MLflow run
-        with self.tracker.start_run(run_name="technical_agent_harv"):
+        run_name = f"technical_agent_{'excess' if self.use_deseasonalized else 'total'}"
+        with self.tracker.start_run(run_name=run_name):
             # Log parameters
             self.tracker.log_params({
                 "model": "Ridge",
@@ -235,7 +260,9 @@ class TechnicalAgent:
                 "n_features": len(self.feature_cols),
                 "train_samples": len(X_train),
                 "test_samples": len(X_test),
-                "train_cutoff": str(train_cutoff)
+                "train_cutoff": str(train_cutoff),
+                "target_col": self.target_col,
+                "deseasonalized": self.use_deseasonalized
             })
             
             # Train model
@@ -275,7 +302,7 @@ class TechnicalAgent:
             print(f"      Directional Accuracy: {self.test_metrics['Directional_Accuracy']:.1f}%")
             
             # Log model
-            self.tracker.log_model(self.model, "technical_agent_ridge")
+            self.tracker.log_model(self.model, f"technical_agent_ridge_{mode.lower()}")
         
         return {
             "train": self.train_metrics,
@@ -325,10 +352,17 @@ class TechnicalAgent:
         residuals_df = pd.DataFrame({
             "date": self.df["date"],
             "ticker": self.df["ticker"],
-            "target_log_var": self.df[self.target_col],
+            "target_log_var": self.df.get("target_log_var", self.df[self.target_col]),
             "pred_tech": predictions,
             "resid_tech": residuals
         })
+        
+        # Phase 7: Add seasonal components if available
+        if "seasonal_component" in self.df.columns:
+            residuals_df["seasonal_component"] = self.df["seasonal_component"].values
+            residuals_df["target_excess"] = self.df["target_excess"].values
+            residuals_df["pred_tech_excess"] = predictions.values
+            print(f"   ✓ Added de-seasonalized columns")
         
         # Save to parquet
         output_path = Path(output_path)
@@ -370,27 +404,6 @@ def main():
     print(f"{'R²':<25} {metrics['train']['R2']:>12.4f} {metrics['test']['R2']:>12.4f}")
     print(f"{'Directional Accuracy':<25} {metrics['train']['Directional_Accuracy']:>11.1f}% {metrics['test']['Directional_Accuracy']:>11.1f}%")
     
-    # Assess performance
-    print("\n" + "=" * 60)
-    print("🔬 PERFORMANCE ASSESSMENT")
-    print("=" * 60)
-    
-    test_r2 = metrics['test']['R2']
-    test_dir_acc = metrics['test']['Directional_Accuracy']
-    
-    if test_r2 > 0.4:
-        verdict = "✅ EXCELLENT - HAR-RV baseline is strong!"
-    elif test_r2 > 0.2:
-        verdict = "✅ GOOD - Solid baseline performance."
-    elif test_r2 > 0:
-        verdict = "⚠️ WEAK - Baseline has predictive power but limited."
-    else:
-        verdict = "❌ POOR - Model not learning meaningful patterns."
-    
-    print(f"\nTest R²: {test_r2:.4f}")
-    print(f"Expected: > 0.40 for good volatility model")
-    print(f"\n{verdict}")
-    
     # Save residuals for Phase 3
     residuals_df = agent.save_residuals()
     
@@ -399,15 +412,10 @@ def main():
     print("=" * 60)
     print(f"File: data/processed/residuals.parquet")
     print(f"Rows: {len(residuals_df):,}")
-    print(f"\nThe NewsAgent (Phase 3) will train on resid_tech")
-    print("to capture what technical features cannot explain.")
     print("=" * 60)
     
     print("\n✅ TechnicalAgent training complete!")
-    print("   Results logged to MLflow experiment: titan_v8_technical_agent")
 
 
 if __name__ == "__main__":
     main()
-
-
