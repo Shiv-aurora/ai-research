@@ -161,6 +161,12 @@ class TechnicalAgent:
             lambda x: x.iloc[22:] if len(x) > 22 else x.iloc[0:0]
         ).reset_index(drop=True)
         
+        # Clean infinity values in target (from log(0))
+        inf_count = np.isinf(df[self.target_col]).sum()
+        if inf_count > 0:
+            print(f"   ⚠️ Cleaning {inf_count} infinity values in target...")
+            df = df.replace([np.inf, -np.inf], np.nan)
+        
         # Drop rows with NaN in features or target
         required_cols = self.feature_cols + [self.target_col]
         before = len(df)
