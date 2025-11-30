@@ -168,3 +168,4 @@ else:
     print(f"📊 Result: {final_r2*100:.2f}% R² (target was 10%)")
 print("="*65)
 
+
