@@ -6,6 +6,14 @@ This module creates a unified news dataset by merging:
 - Kaggle backfill data (2018-2020)
 - Polygon.io API data (2020-2025)
 
+Phase 10 UPDATE: "Overnight News Split" Strategy
+- Parses published_utc with timezone
+- Converts to US/Eastern time
+- Creates "effective_date" based on market hours:
+  - News before 4:00 PM ET → same day
+  - News after 4:00 PM ET → next business day
+- This ensures we only use news the market hasn't priced in yet
+
 Usage:
     python -m src.pipeline.ingest_news
 """
@@ -17,9 +25,11 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 import pandas as pd
+import numpy as np
 import yaml
 from polygon import RESTClient
 from tqdm import tqdm
+import pytz
 
 
 # =============================================================================
@@ -353,7 +363,98 @@ def ingest_polygon_news(config: dict) -> pd.DataFrame:
 
 
 # =============================================================================
-# STEP C: MERGE AND DEDUPLICATE
+# STEP C: EFFECTIVE DATE CALCULATION (Overnight News Split)
+# =============================================================================
+
+def calculate_effective_date(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate the "effective date" for each news item based on market hours.
+    
+    THEORY:
+    - News released during trading hours (9:30 AM - 4:00 PM ET) is priced in immediately
+    - News released after hours (>= 4:00 PM ET) drives NEXT DAY volatility
+    - News released pre-market (< 9:30 AM ET) belongs to CURRENT day
+    
+    LOGIC:
+    - If time >= 16:00 ET (after close): effective_date = date + 1 trading day
+    - If time < 16:00 ET (before close): effective_date = date (same day)
+    
+    For forecasting, we want to predict Day T volatility using only news
+    that the market hasn't processed yet at open of Day T.
+    
+    Args:
+        df: DataFrame with 'date' column (should be UTC datetime)
+    
+    Returns:
+        DataFrame with 'effective_date' and 'publish_hour_et' columns added
+    """
+    df = df.copy()
+    
+    # Timezone constants
+    ET = pytz.timezone('US/Eastern')
+    MARKET_CLOSE_HOUR = 16  # 4:00 PM ET
+    
+    print("\n  📅 Calculating effective dates (Overnight News Split)...")
+    
+    # Ensure date is timezone-aware UTC
+    if df['date'].dt.tz is None:
+        df['date'] = pd.to_datetime(df['date']).dt.tz_localize('UTC')
+    else:
+        df['date'] = pd.to_datetime(df['date']).dt.tz_convert('UTC')
+    
+    # Convert to Eastern Time
+    df['datetime_et'] = df['date'].dt.tz_convert(ET)
+    
+    # Extract hour in Eastern Time
+    df['publish_hour_et'] = df['datetime_et'].dt.hour
+    
+    # Calculate effective date
+    # News at/after 4 PM ET → belongs to next day
+    # News before 4 PM ET → belongs to same day
+    def get_effective_date(row):
+        dt_et = row['datetime_et']
+        date_part = dt_et.date()
+        
+        if dt_et.hour >= MARKET_CLOSE_HOUR:
+            # After market close → next trading day
+            # Simple approach: add 1 day (skip weekends)
+            next_day = date_part + timedelta(days=1)
+            # Skip Saturday → Monday
+            if next_day.weekday() == 5:  # Saturday
+                next_day = next_day + timedelta(days=2)
+            # Skip Sunday → Monday
+            elif next_day.weekday() == 6:  # Sunday
+                next_day = next_day + timedelta(days=1)
+            return pd.Timestamp(next_day)
+        else:
+            # Before market close → same day
+            return pd.Timestamp(date_part)
+    
+    df['effective_date'] = df.apply(get_effective_date, axis=1)
+    
+    # Statistics
+    after_close_count = (df['publish_hour_et'] >= MARKET_CLOSE_HOUR).sum()
+    before_close_count = (df['publish_hour_et'] < MARKET_CLOSE_HOUR).sum()
+    
+    print(f"     Total news items: {len(df):,}")
+    print(f"     Before 4 PM ET (same-day):  {before_close_count:,} ({100*before_close_count/len(df):.1f}%)")
+    print(f"     After 4 PM ET (next-day):   {after_close_count:,} ({100*after_close_count/len(df):.1f}%)")
+    
+    # Distribution by hour
+    hour_dist = df['publish_hour_et'].value_counts().sort_index()
+    print(f"\n     Publication hour distribution (ET):")
+    for hour in [6, 9, 12, 15, 18, 21]:
+        count = hour_dist.get(hour, 0)
+        print(f"        {hour:02d}:00 - {count:,} items")
+    
+    # Clean up temporary column
+    df = df.drop(columns=['datetime_et'])
+    
+    return df
+
+
+# =============================================================================
+# STEP D: MERGE AND DEDUPLICATE
 # =============================================================================
 
 def merge_news_datasets(kaggle_df: pd.DataFrame, polygon_df: pd.DataFrame) -> pd.DataFrame:
@@ -463,6 +564,9 @@ def main():
     
     # Step C: Merge and deduplicate
     merged_df = merge_news_datasets(kaggle_df, polygon_df)
+    
+    # Step D: Calculate effective dates (Overnight News Split)
+    merged_df = calculate_effective_date(merged_df)
     
     # Summary statistics
     print("\n" + "=" * 60)

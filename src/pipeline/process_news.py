@@ -13,6 +13,12 @@ Features generated:
 - news_pca_0..19: 20-dimensional news theme vectors
 - novelty_score: Cosine distance from previous day's news
 
+Phase 10 UPDATE: "Overnight News Split" Strategy
+- Groups by 'effective_date' (not original publish date)
+- effective_date = date when news impacts volatility
+- After-hours news (>= 4 PM ET) impacts NEXT day
+- This ensures we only use news the market hasn't priced in
+
 Usage:
     python -m src.pipeline.process_news
     python -m src.pipeline.process_news --mode full  # Use sentence-transformers
@@ -276,9 +282,13 @@ def fit_pca_with_antileakage(
 # STEP D: DAILY AGGREGATION (Ticker Level)
 # =============================================================================
 
-def aggregate_daily_features(df: pd.DataFrame, pca_cols: list) -> pd.DataFrame:
+def aggregate_daily_features(df: pd.DataFrame, pca_cols: list, use_effective_date: bool = True) -> pd.DataFrame:
     """
     Aggregate news features to daily ticker level.
+    
+    Phase 10 UPDATE: Uses 'effective_date' instead of 'date' by default.
+    This ensures proper causality - we only use news that hasn't been
+    priced in yet at market open.
     
     Aggregations:
     - shock_index: Sum of shock scores
@@ -289,16 +299,26 @@ def aggregate_daily_features(df: pd.DataFrame, pca_cols: list) -> pd.DataFrame:
     Args:
         df: DataFrame with news features
         pca_cols: List of PCA column names
+        use_effective_date: If True, group by effective_date; else by date
     
     Returns:
         Aggregated daily DataFrame
     """
     print("\n  📊 Aggregating to daily ticker level...")
     
-    # Ensure date is date-only (no time)
     df = df.copy()
-    df["date"] = pd.to_datetime(df["date"]).dt.date
-    df["date"] = pd.to_datetime(df["date"])
+    
+    # Determine which date column to use
+    if use_effective_date and 'effective_date' in df.columns:
+        date_col = 'effective_date'
+        print(f"     ✓ Using 'effective_date' (Overnight News Split)")
+    else:
+        date_col = 'date'
+        print(f"     ℹ️ Using original 'date' (no effective_date found)")
+    
+    # Ensure date is date-only (no time)
+    df["agg_date"] = pd.to_datetime(df[date_col]).dt.date
+    df["agg_date"] = pd.to_datetime(df["agg_date"])
     
     # Build aggregation dictionary
     agg_dict = {
@@ -311,17 +331,27 @@ def aggregate_daily_features(df: pd.DataFrame, pca_cols: list) -> pd.DataFrame:
     for col in pca_cols:
         agg_dict[col] = "mean"
     
-    # Group by date and ticker
-    daily = df.groupby(["date", "ticker"]).agg(agg_dict).reset_index()
+    # Also track publish hour distribution (for debugging)
+    if 'publish_hour_et' in df.columns:
+        agg_dict['publish_hour_et'] = lambda x: x.median()
+    
+    # Group by aggregation date and ticker
+    daily = df.groupby(["agg_date", "ticker"]).agg(agg_dict).reset_index()
     
     # Rename columns
     daily = daily.rename(columns={
+        "agg_date": "date",  # Final output uses "date" (= effective_date)
         "shock_score": "shock_index",
         "sentiment_score": "sentiment_avg",
         "raw_text": "news_count"
     })
     
+    # Drop publish_hour_et if present (not needed downstream)
+    if 'publish_hour_et' in daily.columns:
+        daily = daily.drop(columns=['publish_hour_et'])
+    
     print(f"     Aggregated to {len(daily):,} daily records")
+    print(f"     Date range: {daily['date'].min()} to {daily['date'].max()}")
     
     return daily
 
@@ -397,17 +427,26 @@ def save_to_parquet(df: pd.DataFrame, output_path: str) -> None:
     print(f"\n💾 Saved to: {output_path} ({file_size_mb:.2f} MB)")
 
 
-def main():
-    """Main entry point for SNAP feature engineering."""
+def main(mode: str = None, use_effective_date: bool = True):
+    """
+    Main entry point for SNAP feature engineering.
+    
+    Args:
+        mode: "lite" (TF-IDF) or "full" (sentence-transformers). Auto-detected if None.
+        use_effective_date: If True, use effective_date for aggregation (Overnight News Split)
+    """
     print("\n" + "=" * 60)
     print("🚀 TITAN V8 SNAP FEATURE ENGINEERING")
     print("    Phase 1.2: News → Volatility Signals")
+    if use_effective_date:
+        print("    Phase 10: Overnight News Split (effective_date)")
     print("=" * 60)
     
     # =========================================
     # Mode Selection
     # =========================================
-    mode = get_vectorization_mode()
+    if mode is None:
+        mode = get_vectorization_mode()
     print(f"\n🖥️  MODE: {mode.upper()}")
     if mode == "full":
         print("   ✓ Using sentence-transformers (high quality)")
@@ -483,7 +522,7 @@ def main():
     print("📌 STEP D: Daily Aggregation")
     print("-" * 50)
     
-    daily_df = aggregate_daily_features(df, pca_cols)
+    daily_df = aggregate_daily_features(df, pca_cols, use_effective_date=use_effective_date)
     
     # =========================================
     # STEP E: Novelty Score
