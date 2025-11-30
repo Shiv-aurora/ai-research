@@ -4,30 +4,24 @@ data:
   raw_path: data/raw
   start_date: '2018-01-01'
   tickers:
-    # Tech (Momentum/Growth - Baseline)
-    - AAPL
-    - MSFT
-    - NVDA
-    # Finance (Rate Sensitivity - Cycle Risk)
-    - JPM
-    - BAC
-    - V
-    # Industrial (Economic Health - Supply Chains)
-    - CAT
-    - GE
-    - BA
-    # Consumer (Inflation Proxy - Consumer Strength)
-    - WMT
-    - MCD
-    - COST
-    # Energy (Commodity Risk - Oil Shocks)
-    - XOM
-    - CVX
-    - SLB
-    # Healthcare (Defensive/Policy - Safety)
-    - JNJ
-    - PFE
-    - UNH
+  - AAPL
+  - MSFT
+  - NVDA
+  - JPM
+  - BAC
+  - V
+  - CAT
+  - GE
+  - BA
+  - WMT
+  - MCD
+  - COST
+  - XOM
+  - CVX
+  - SLB
+  - JNJ
+  - PFE
+  - UNH
 mlflow:
   experiment_name: titan_v8_universe_18
 project_name: titan_v8
