@@ -2,7 +2,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Validation: Institutional Grade](https://img.shields.io/badge/validation-institutional%20grade-green.svg)](#validation-suite)
+
 
 A production-grade volatility forecasting system that integrates technical analysis, news sentiment, and retail behavior signals into a unified ensemble. RIVE achieves **61% R²** on high-activity stocks and **22% R²** on S&P 500 blue chips.
 
@@ -23,15 +23,15 @@ RIVE passes **9/9 institutional-grade validation tests**, meeting AQR/Two Sigma 
 
 | Test | Result | Description |
 |------|--------|-------------|
-| 🔒 **No Leakage** | ✅ PASS | Shuffle test R² = -0.46% (random noise = no signal) |
-| 🔁 **Horizon Decay** | ✅ PASS | IC drops from +0.636 (T) → +0.398 (T+10), confirming signal persistence not leakage |
-| 📉 **Regime-Conditional** | ✅ PASS | R² ≥ 29.6% in all market regimes (Bull, Bear, High Vol, Low Vol) |
-| 🧪 **Bootstrap Significance** | ✅ PASS | 95% CI: [32.6%, 36.7%], 5th pct (32.6%) > HAR baseline (15.4%) |
-| 🧩 **Sector Generalization** | ✅ PASS | 34% R² on held-out sector (Industrial/Consumer) |
-| 📆 **Walk-Forward Stability** | ✅ PASS | Mean R² = 32% across years 2021-2024, including 2022 Bear Market |
-| 🎲 **Random Shuffle** | ✅ PASS | Shuffled target → R² = -0.46% (confirms no spurious correlation) |
-| 🧫 **Noise Robustness** | ✅ PASS | +50% Gaussian noise on retail signal → only 3.2% R² drop |
-| 🔀 **Out-of-Universe** | ✅ PASS | Model trained on 12 tickers achieves 18.7% R² on 6 unseen tickers |
+|  **No Leakage** | ✅ PASS | Shuffle test R² = -0.46% (random noise = no signal) |
+|  **Horizon Decay** | ✅ PASS | IC drops from +0.636 (T) → +0.398 (T+10), confirming signal persistence not leakage |
+|  **Regime-Conditional** | ✅ PASS | R² ≥ 29.6% in all market regimes (Bull, Bear, High Vol, Low Vol) |
+|  **Bootstrap Significance** | ✅ PASS | 95% CI: [32.6%, 36.7%], 5th pct (32.6%) > HAR baseline (15.4%) |
+|  **Sector Generalization** | ✅ PASS | 34% R² on held-out sector (Industrial/Consumer) |
+|  **Walk-Forward Stability** | ✅ PASS | Mean R² = 32% across years 2021-2024, including 2022 Bear Market |
+|  **Random Shuffle** | ✅ PASS | Shuffled target → R² = -0.46% (confirms no spurious correlation) |
+|  **Noise Robustness** | ✅ PASS | +50% Gaussian noise on retail signal → only 3.2% R² drop |
+|  **Out-of-Universe** | ✅ PASS | Model trained on 12 tickers achieves 18.7% R² on 6 unseen tickers |
 
 ### Institutional Validation Summary
 
@@ -282,7 +282,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 👤 Author
 
-**Shiv Arora** - Research Project 2025
+**Shivam Arora**  2025
 
 ---
 
