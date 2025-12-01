@@ -1,9 +1,12 @@
 """
-TitanCoordinator: Ridge Regression with Robustness Upgrades
+RiveCoordinator: Regime-Integrated Volatility Ensemble (RIVE)
 
-Phase 15: The Robustness Upgrade
+RIVE is a multi-source volatility forecasting system combining:
+- Technical signals (HAR-RV)
+- News sentiment (LightGBM classifier)
+- Retail behavior (regime detection)
 
-Key Optimizations (from optimization audit):
+Key Optimizations:
 - Model: Ridge(alpha=100.0) - stronger regularization
 - Winsorization: Clip y_train at 2nd/98th percentiles
 - Momentum: vol_ma5, vol_ma10, vol_std5
@@ -15,11 +18,13 @@ Architecture:
 - Winsorization: Applied to training target only
 - Validation: Purged Walk-Forward (Train < 2023, Test >= 2023)
 
-Target: 30%+ R² (with winsorization)
+Performance:
+- Top 50 Most Active: 61.12% R²
+- S&P 500 GICS-55: 22.44% R²
 
 Usage:
-    from src.coordinator.fusion import TitanCoordinator
-    coordinator = TitanCoordinator()
+    from src.coordinator.fusion import RiveCoordinator
+    coordinator = RiveCoordinator()
     coordinator.train(predictions_df)
 """
 
@@ -37,9 +42,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.utils.tracker import MLTracker
 
 
-class TitanCoordinator:
+class RiveCoordinator:
     """
-    Ridge Coordinator with Robustness Upgrades (Phase 15).
+    RIVE: Regime-Integrated Volatility Ensemble Coordinator.
+    
+    A production-grade ensemble model combining technical, news, and retail signals
+    for volatility forecasting.
     
     Key Optimizations:
     - Ridge(alpha=100) for stronger regularization
@@ -57,11 +65,11 @@ class TitanCoordinator:
     - news_x_retail: Interaction term
     """
     
-    def __init__(self, experiment_name: str = "titan_v8_coordinator_phase15",
+    def __init__(self, experiment_name: str = "rive_coordinator",
                  alpha: float = 100.0,
                  winsorize_pct: float = 0.02):
         """
-        Initialize TitanCoordinator with Phase 15 settings.
+        Initialize RiveCoordinator.
         
         Args:
             experiment_name: MLflow experiment name

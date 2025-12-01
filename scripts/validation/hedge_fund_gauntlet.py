@@ -1,7 +1,7 @@
 """
 Hedge Fund Gauntlet: The Ultimate Alpha Validation
 
-This is the final boss. If Titan V8 survives this, it's production-ready.
+This is the final boss. If RIVE survives this, it's production-ready.
 
 Tests:
 1. Temporal Stability (Rolling Alpha) - Is the signal consistent over time?
@@ -355,7 +355,7 @@ def test_3_time_shift(df):
     Test causality by shifting news_pred in time.
     
     - Shift +1: Future news (cheating) - should be highest
-    - Shift 0: Current (Titan) - our actual model
+    - Shift 0: Current (RIVE) - our actual model
     - Shift -1: Old news (late) - should be lower
     
     Pass: R²(Shift 0) > R²(Shift -1)
@@ -376,7 +376,7 @@ def test_3_time_shift(df):
     
     shifts = {
         "+1 (Future - Cheating)": 1,
-        "0 (Current - Titan)": 0,
+        "0 (Current - RIVE)": 0,
         "-1 (Old - Late)": -1,
         "-2 (Very Old)": -2
     }
@@ -426,7 +426,7 @@ def test_3_time_shift(df):
         print(f"   {name:25s}: R² = {r2:.4f}{marker}")
     
     # Check causality
-    r2_current = results.get("0 (Current - Titan)", 0)
+    r2_current = results.get("0 (Current - RIVE)", 0)
     r2_late = results.get("-1 (Old - Late)", 0)
     r2_future = results.get("+1 (Future - Cheating)", 0)
     
@@ -579,7 +579,7 @@ def main():
     if n_passed == 4:
         verdict = "PRODUCTION READY"
         emoji = "🏆"
-        msg = "All tests passed. Titan V8 is ready for live trading."
+        msg = "All tests passed. RIVE is ready for live trading."
     elif n_passed >= 3:
         verdict = "VALIDATED"
         emoji = "✅"

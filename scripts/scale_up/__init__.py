@@ -1,22 +1,21 @@
 """
-Scale-Up Phase: Multi-Universe Evaluation
+RIVE Scale-Up Phase: Multi-Universe Evaluation
 
-This module contains infrastructure to test Titan V15 on large stock universes:
-- High Octane 50: Most active/volatile stocks
-- SP500 Sector Leaders 55: Blue-chip stocks across 11 GICS sectors
+This module contains infrastructure to test RIVE on large stock universes:
+- Top 50 Active: Most actively traded U.S. stocks
+- GICS Balanced 55: S&P 500 sector-balanced (5 per sector)
 """
 
 from .config_universes import (
-    MOST_ACTIVE_50,
-    SP500_SECTOR_LEADERS_55,
+    TOP_50_ACTIVE,
+    GICS_BALANCED_55,
     SECTOR_MAP_ACTIVE,
     SECTOR_MAP_SP500
 )
 
 __all__ = [
-    'MOST_ACTIVE_50',
-    'SP500_SECTOR_LEADERS_55',
+    'TOP_50_ACTIVE',
+    'GICS_BALANCED_55',
     'SECTOR_MAP_ACTIVE',
     'SECTOR_MAP_SP500'
 ]
-

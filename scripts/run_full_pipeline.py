@@ -1,5 +1,5 @@
 """
-Titan V8 Full Pipeline: 18-Ticker Universe with Retail Regime
+RIVE Full Pipeline: Multi-Ticker Universe with Retail Regime
 
 Phase 13: The Retail Regime Agent Integration
 
@@ -522,8 +522,8 @@ def train_coordinator(df):
 
 
 def main():
-    """Run the full Titan V8 Phase 13 pipeline."""
-    parser = argparse.ArgumentParser(description="Titan V8 Phase 13 - Retail Regime Integration")
+    """Run the full RIVE pipeline."""
+    parser = argparse.ArgumentParser(description="RIVE - Regime-Integrated Volatility Ensemble")
     parser.add_argument("--skip-ingest", action="store_true", help="Skip data verification details")
     args = parser.parse_args()
     
@@ -611,7 +611,7 @@ def main():
    COORDINATOR PERFORMANCE:
    ------------------------
    Baseline (HAR only):   R² = {results['baseline_r2']:.4f} ({results['baseline_r2']*100:.2f}%)
-   Titan V8 Phase 13:     R² = {results['test_r2']:.4f} ({results['test_r2']*100:.2f}%)
+   RIVE Ensemble:         R² = {results['test_r2']:.4f} ({results['test_r2']*100:.2f}%)
    
    Improvement: {(results['test_r2'] - results['baseline_r2'])*100:+.2f}%
 """)

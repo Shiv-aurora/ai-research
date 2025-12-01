@@ -122,15 +122,15 @@ def main():
     print("📊 STEP D: PREPARE COORDINATOR DATA")
     print("=" * 70)
     
-    from src.coordinator.fusion import TitanCoordinator
+    from src.coordinator.fusion import RiveCoordinator
     
     # Load data
     targets_df = pd.read_parquet("data/processed/targets_deseasonalized.parquet")
     residuals_df = pd.read_parquet("data/processed/residuals.parquet")
     
-    # Initialize coordinator with Phase 15 settings
-    coordinator = TitanCoordinator(
-        experiment_name="titan_v8_phase15_coordinator",
+    # Initialize RIVE coordinator
+    coordinator = RiveCoordinator(
+        experiment_name="rive_coordinator",
         alpha=100.0,           # Stronger regularization
         winsorize_pct=0.02     # 2% winsorization
     )
@@ -207,7 +207,7 @@ def main():
         improvement = (test_r2 - baseline_r2) * 100
         print(f"\n   vs Baseline (HAR only):")
         print(f"      Baseline: {baseline_r2:.4f}")
-        print(f"      Titan V8: {test_r2:.4f}")
+        print(f"      RIVE: {test_r2:.4f}")
         print(f"      Improvement: {improvement:+.2f}%")
     
     # Winsorized comparison

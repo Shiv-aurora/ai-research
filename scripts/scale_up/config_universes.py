@@ -1,18 +1,18 @@
 """
-Stock Universe Configurations for Scale-Up Phase
+Stock Universe Configurations for RIVE Scale-Up Phase
 
-Contains two universes for Titan V15 evaluation:
-1. MOST_ACTIVE_50: High volatility, social-driven stocks
-2. SP500_SECTOR_LEADERS_55: Blue-chip stocks across 11 GICS sectors
+Contains two universes for RIVE (Regime-Integrated Volatility Ensemble) evaluation:
+1. TOP_50_ACTIVE: High volatility, social-driven stocks
+2. GICS_BALANCED_55: Blue-chip stocks across 11 GICS sectors
 """
 
 # =============================================================================
-# UNIVERSE A: HIGH OCTANE 50
+# UNIVERSE A: TOP 50 MOST ACTIVE U.S. STOCKS
 # =============================================================================
 # Most actively traded stocks - includes crypto miners, meme stocks, speculative tech
 # Expected characteristics: High volatility, Reddit/social influence, variable liquidity
 
-MOST_ACTIVE_50 = [
+TOP_50_ACTIVE = [
     'NVDA', 'HBI', 'INTC', 'BITF', 'BBAI', 'OPEN', 'BMNR', 'CLSK', 'PLUG', 'SNAP',
     'AAL', 'TSLA', 'CIFR', 'ONDS', 'MARA', 'WULF', 'NIO', 'F', 'SOFI', 'VALE',
     'GOOGL', 'BTG', 'GRAB', 'ACHR', 'PFE', 'CRCL', 'DNN', 'IPG', 'IBRX', 'RIOT',
@@ -57,12 +57,12 @@ SECTOR_MAP_ACTIVE = {
 
 
 # =============================================================================
-# UNIVERSE B: S&P 500 SECTOR LEADERS 55
+# UNIVERSE B: S&P 500 GICS SECTOR-BALANCED 55
 # =============================================================================
 # 5 blue-chip stocks per GICS sector - institutional quality, high liquidity
 # Expected characteristics: Moderate volatility, traditional news, complete data
 
-SP500_SECTOR_LEADERS_55 = [
+GICS_BALANCED_55 = [
     # Information Technology (5)
     'AAPL', 'MSFT', 'NVDA', 'AVGO', 'ORCL',
     # Health Care (5)
@@ -145,21 +145,23 @@ GICS_SECTORS = [
 
 # Universe metadata
 UNIVERSE_METADATA = {
-    'High_Octane_50': {
-        'name': 'High Octane 50',
-        'tickers': MOST_ACTIVE_50,
+    'Top_50_Active': {
+        'name': 'Top 50 Most Active U.S. Stocks',
+        'tickers': TOP_50_ACTIVE,
         'sector_map': SECTOR_MAP_ACTIVE,
         'description': 'Most actively traded stocks - crypto miners, meme stocks, speculative tech',
         'expected_volatility': 'Very High',
-        'news_source': 'Social/Reddit heavy'
+        'news_source': 'Social/Reddit heavy',
+        'performance': '61.12% R²'
     },
-    'SP500_Sector_Leaders': {
-        'name': 'S&P 500 Sector Leaders 55',
-        'tickers': SP500_SECTOR_LEADERS_55,
+    'GICS_Balanced_55': {
+        'name': 'S&P 500 GICS Sector-Balanced 55',
+        'tickers': GICS_BALANCED_55,
         'sector_map': SECTOR_MAP_SP500,
         'description': 'Blue-chip stocks across 11 GICS sectors',
         'expected_volatility': 'Moderate',
-        'news_source': 'Traditional financial news'
+        'news_source': 'Traditional financial news',
+        'performance': '22.44% R²'
     }
 }
 
@@ -171,7 +173,7 @@ def get_universe(name: str) -> dict:
     return UNIVERSE_METADATA[name]
 
 
-def get_sector(ticker: str, universe: str = 'SP500_Sector_Leaders') -> str:
+def get_sector(ticker: str, universe: str = 'GICS_Balanced_55') -> str:
     """Get sector for a ticker from specified universe."""
     sector_map = UNIVERSE_METADATA[universe]['sector_map']
     return sector_map.get(ticker, 'Unknown')
@@ -179,7 +181,7 @@ def get_sector(ticker: str, universe: str = 'SP500_Sector_Leaders') -> str:
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("SCALE-UP UNIVERSE CONFIGURATIONS")
+    print("RIVE - SCALE-UP UNIVERSE CONFIGURATIONS")
     print("=" * 60)
     
     for universe_name, metadata in UNIVERSE_METADATA.items():

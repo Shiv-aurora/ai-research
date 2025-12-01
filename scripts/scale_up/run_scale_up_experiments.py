@@ -1,7 +1,7 @@
 """
 Scale-Up Phase: Multi-Universe Experiment Orchestrator
 
-Runs Titan V15 on two stock universes:
+Runs RIVE on two stock universes:
 1. High Octane 50: Most active/volatile stocks
 2. SP500 Sector Leaders 55: Blue-chip stocks across 11 sectors
 
@@ -40,8 +40,8 @@ import mlflow
 
 # Import universe configurations
 from scripts.scale_up.config_universes import (
-    MOST_ACTIVE_50,
-    SP500_SECTOR_LEADERS_55,
+    TOP_50_ACTIVE,
+    GICS_BALANCED_55,
     SECTOR_MAP_ACTIVE,
     SECTOR_MAP_SP500,
     UNIVERSE_METADATA
@@ -201,13 +201,13 @@ class ScaleUpOrchestrator:
             mlflow.end_run()
             
             # Step 4: Train Coordinator
-            print("      [4/4] Training Titan V15 Coordinator...")
-            from src.coordinator.fusion import TitanCoordinator
+            print("      [4/4] Training RIVE Coordinator...")
+            from src.coordinator.fusion import RiveCoordinator
             
             targets_df = pd.read_parquet(PROJECT_ROOT / "data/processed/targets_deseasonalized.parquet")
             residuals_df = pd.read_parquet(PROJECT_ROOT / "data/processed/residuals.parquet")
             
-            coordinator = TitanCoordinator(alpha=100.0, winsorize_pct=0.02)
+            coordinator = RiveCoordinator(alpha=100.0, winsorize_pct=0.02)
             coord_df = coordinator.prepare_predictions_dataset(
                 tech_agent=tech_agent,
                 news_agent=news_agent,
@@ -397,17 +397,17 @@ def main():
     orchestrator = ScaleUpOrchestrator()
     
     try:
-        # Experiment 1: High Octane 50
+        # Experiment 1: Top 50 Most Active U.S. Stocks
         results_a = orchestrator.run_experiment(
-            name="High_Octane_50",
-            tickers=MOST_ACTIVE_50,
+            name="Top_50_Active",
+            tickers=TOP_50_ACTIVE,
             sector_map=SECTOR_MAP_ACTIVE
         )
         
-        # Experiment 2: S&P 500 Sector Leaders
+        # Experiment 2: S&P 500 GICS Sector-Balanced 55
         results_b = orchestrator.run_experiment(
-            name="SP500_Sector_Leaders",
-            tickers=SP500_SECTOR_LEADERS_55,
+            name="GICS_Balanced_55",
+            tickers=GICS_BALANCED_55,
             sector_map=SECTOR_MAP_SP500
         )
         

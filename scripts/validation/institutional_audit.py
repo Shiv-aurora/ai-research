@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 import mlflow
 
 # Import universe configurations
-from scripts.scale_up.config_universes import MOST_ACTIVE_50, SECTOR_MAP_ACTIVE
+from scripts.scale_up.config_universes import TOP_50_ACTIVE, SECTOR_MAP_ACTIVE
 
 
 def load_high_octane_data():
@@ -48,28 +48,28 @@ def load_high_octane_data():
         targets["ticker"] = targets["ticker"].astype(str)
     
     # Filter to High Octane tickers
-    targets = targets[targets["ticker"].isin(MOST_ACTIVE_50)].copy()
+    targets = targets[targets["ticker"].isin(TOP_50_ACTIVE)].copy()
     
     # Load residuals
     residuals = pd.read_parquet(PROJECT_ROOT / "data/processed/residuals.parquet")
     residuals["date"] = pd.to_datetime(residuals["date"]).dt.tz_localize(None)
     if residuals["ticker"].dtype.name == "category":
         residuals["ticker"] = residuals["ticker"].astype(str)
-    residuals = residuals[residuals["ticker"].isin(MOST_ACTIVE_50)].copy()
+    residuals = residuals[residuals["ticker"].isin(TOP_50_ACTIVE)].copy()
     
     # Load news features
     news = pd.read_parquet(PROJECT_ROOT / "data/processed/news_features.parquet")
     news["date"] = pd.to_datetime(news["date"]).dt.tz_localize(None)
     if news["ticker"].dtype.name == "category":
         news["ticker"] = news["ticker"].astype(str)
-    news = news[news["ticker"].isin(MOST_ACTIVE_50)].copy()
+    news = news[news["ticker"].isin(TOP_50_ACTIVE)].copy()
     
     # Load retail proxy
     retail = pd.read_parquet(PROJECT_ROOT / "data/processed/reddit_proxy.parquet")
     retail["date"] = pd.to_datetime(retail["date"]).dt.tz_localize(None)
     if retail["ticker"].dtype.name == "category":
         retail["ticker"] = retail["ticker"].astype(str)
-    retail = retail[retail["ticker"].isin(MOST_ACTIVE_50)].copy()
+    retail = retail[retail["ticker"].isin(TOP_50_ACTIVE)].copy()
     
     # Merge
     df = pd.merge(targets, residuals[["date", "ticker", "pred_tech_excess", "resid_tech"]], 
@@ -133,7 +133,7 @@ def load_high_octane_data():
 
 def train_titan_v15(train_df, test_df, alpha=100.0, winsorize_pct=0.02):
     """
-    Train Titan V15 and return predictions on test set.
+    Train RIVE and return predictions on test set.
     """
     train_df = train_df.copy()
     test_df = test_df.copy()

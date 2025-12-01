@@ -1,7 +1,7 @@
 """
 Phase 16: Final Scientific Validation
 
-Three rigorous tests to prove Titan V15 is robust:
+Three rigorous tests to prove RIVE is robust:
 1. Test A: Rolling Walk-Forward (Time Test)
 2. Test B: Cross-Universe Generalization (Ticker Test)
 3. Test C: Retail Signal Fragility (Noise Test)
@@ -156,7 +156,7 @@ def load_full_dataset():
 
 def train_full_pipeline(train_df, test_df, alpha=100.0, winsorize_pct=0.02, verbose=True):
     """
-    Train the complete Titan V15 pipeline on training data and evaluate on test data.
+    Train the complete RIVE pipeline on training data and evaluate on test data.
     
     This includes:
     0. HAR-RV Model -> tech_pred (if missing)
