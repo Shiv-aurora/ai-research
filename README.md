@@ -1,7 +1,12 @@
 # RIVE: Regime-Integrated Volatility Ensemble
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+<<<<<<< HEAD
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+=======
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+>>>>>>> d718fdcda4602385fcd0c40e9a5269f55127be40
 
 A multi-agent expert system for next-day equity volatility forecasting. RIVE integrates HAR-RV technical dynamics, news-derived risk signals, and retail-attention regime indicators through a ridge-regularized coordinator.
 
@@ -51,7 +56,40 @@ GARCH models produce negative R² due to a well-documented measurement mismatch:
 | Consumer Staples | 10.06% |
 | Real Estate | 2.60% |
 
+<<<<<<< HEAD
 All 11 sectors achieve positive R². RIVE outperforms GARCH(1,1) on 53 of 55 tickers (96.4%).
+=======
+| Test | Result | Description |
+|------|--------|-------------|
+|  **No Leakage** | ✅ PASS | Shuffle test R² = -0.46% (random noise = no signal) |
+|  **Horizon Decay** | ✅ PASS | IC drops from +0.636 (T) → +0.398 (T+10), confirming signal persistence not leakage |
+|  **Regime-Conditional** | ✅ PASS | R² ≥ 29.6% in all market regimes (Bull, Bear, High Vol, Low Vol) |
+|  **Bootstrap Significance** | ✅ PASS | 95% CI: [32.6%, 36.7%], 5th pct (32.6%) > HAR baseline (15.4%) |
+|  **Sector Generalization** | ✅ PASS | 34% R² on held-out sector (Industrial/Consumer) |
+|  **Walk-Forward Stability** | ✅ PASS | Mean R² = 32% across years 2021-2024, including 2022 Bear Market |
+|  **Random Shuffle** | ✅ PASS | Shuffled target → R² = -0.46% (confirms no spurious correlation) |
+|  **Noise Robustness** | ✅ PASS | +50% Gaussian noise on retail signal → only 3.2% R² drop |
+|  **Out-of-Universe** | ✅ PASS | Model trained on 12 tickers achieves 18.7% R² on 6 unseen tickers |
+
+### Institutional Validation Summary
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║              INSTITUTIONAL VALIDATION REPORT                  ║
+╠═══════════════════════════════════════════════════════════════╣
+║ Stability Score (Variance of Yearly R²):     0.0089           ║
+║ Generalization Score (OOS Ticker R²):        18.7%            ║
+║ Fragility Score (Noise Impact):              -3.2%            ║
+╠═══════════════════════════════════════════════════════════════╣
+║ FINAL ASSESSMENT:  🏆 INSTITUTIONAL GRADE                     ║
+║                                                               ║
+║ The model meets AQR/Two Sigma validation standards:           ║
+║ ✓ Signal persists across prediction horizons                  ║
+║ ✓ Performs consistently across market regimes                 ║
+║ ✓ Results are statistically significant                       ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+>>>>>>> d718fdcda4602385fcd0c40e9a5269f55127be40
 
 ---
 
@@ -221,4 +259,22 @@ rive/
 
 ## License
 
+<<<<<<< HEAD
 MIT License. See [LICENSE](LICENSE) for details.
+=======
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## 👤 Author
+
+**Shivam Arora**  2025
+
+---
+
+## 🙏 Acknowledgments
+
+- [Polygon.io](https://polygon.io/) for market data API
+- [MLflow](https://mlflow.org/) for experiment tracking
+- Corsi, F. (2009). "A Simple Approximate Long-Memory Model of Realized Volatility." *Journal of Financial Econometrics*.
+>>>>>>> d718fdcda4602385fcd0c40e9a5269f55127be40
