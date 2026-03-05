@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "RIVE: Regime-Integrated Volatility Ensemble"
+authors:
+  - family-names: Arora
+    given-names: Shivam
+    affiliation: Villanova University
+  - family-names: Margapuri
+    given-names: Venkat
+    affiliation: Villanova University
+type: article
+journal: "Expert Systems with Applications"
+year: 2026
+abstract: >-
+  A multi-agent expert system for next-day equity volatility forecasting
+  that integrates HAR-RV technical dynamics, news-derived risk signals,
+  and retail-attention regime indicators through a ridge-regularized
+  coordinator. Achieves 23.04% out-of-sample R-squared on 55
+  sector-balanced U.S. equities (2023-2024).
+keywords:
+  - volatility forecasting
+  - multi-agent systems
+  - regime switching
+  - news sentiment
+  - retail attention
+license: MIT
