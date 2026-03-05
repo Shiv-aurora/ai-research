@@ -22,7 +22,7 @@ def test_config_loading():
     """Checks if config is readable."""
     with open("conf/base/config.yaml") as f:
         cfg = yaml.safe_load(f)
-    assert cfg["project_name"] == "titan_v8", "Config content mismatch"
+    assert cfg["project_name"] == "rive", "Config content mismatch"
     print("✅ Config Loading: OK")
 
 

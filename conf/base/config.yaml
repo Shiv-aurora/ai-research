@@ -23,6 +23,6 @@ data:
   - PFE
   - UNH
 mlflow:
-  experiment_name: titan_v8_universe_18
-project_name: titan_v8
+  experiment_name: rive_universe_18
+project_name: rive
 seed: 42

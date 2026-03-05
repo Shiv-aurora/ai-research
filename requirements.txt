@@ -1,5 +1,5 @@
-# Titan V8 Dependencies
-# Multi-Agent Volatility Prediction Research Project
+# RIVE Dependencies
+# Regime-Integrated Volatility Ensemble
 
 # Data Processing
 pandas

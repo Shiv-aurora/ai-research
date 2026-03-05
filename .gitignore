@@ -1,4 +1,4 @@
-# Titan V8 .gitignore
+# RIVE .gitignore
 
 # Data directories (large files)
 data/
@@ -29,3 +29,13 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Working directories
+visuals/
+
+# Manuscript source (submitted separately)
+paper.tex
+final_report.tex
+
+# Claude Code
+.claude/
