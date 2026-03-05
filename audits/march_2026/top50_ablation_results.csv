@@ -1,0 +1,9 @@
+configuration,features,alpha,r2_pct,rmse,n,interpretation
+HAR-RV-X baseline,tech_pred,1.0,3.2,1.631,3763,Technical dynamics only
+HAR-RV-X + News,"tech_pred, news_risk_score",1.0,4.4,1.621,3763,Linear news augmentation
+HAR-RV-X + Retail,"tech_pred, retail_risk_score",1.0,4.5,1.62,3763,Linear attention proxy
+HAR-RV-X + News + Retail (linear),"tech_pred, news_risk_score, retail_risk_score",1.0,5.4,1.613,3763,"All signals, no regime logic"
+RIVE (full),"tech_pred, news_risk_score, retail_risk_score, is_friday, is_monday, is_q4, vol_ma5, vol_ma10, vol_std5, news_x_retail",100.0,34.2,1.345,3763,Regime-aware ensemble
+RIVE without News Agent,"tech_pred, retail_risk_score, is_friday, is_monday, is_q4, vol_ma5, vol_ma10, vol_std5",100.0,34.5,1.342,3763,No news-driven tail detection
+RIVE without Retail Agent,"tech_pred, news_risk_score, is_friday, is_monday, is_q4, vol_ma5, vol_ma10, vol_std5",100.0,34.1,1.347,3763,No attention regime detection
+News + Retail only (no HAR),"news_risk_score, retail_risk_score, news_x_retail",100.0,-3.4,1.686,3763,No volatility memory
