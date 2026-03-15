@@ -16,8 +16,8 @@ A modular machine learning system for next-day equity volatility forecasting. RI
 | Model | Test R² | RMSE | DM vs RIVE (MSE) |
 |-------|---------|------|-------------------|
 | Elastic Net (linear monolithic) | 23.57% | 1.2025 | p = 0.0002 |
-| **RIVE** (modular ensemble) | **23.29%** | **1.2047** | — |
 | LightGBM (nonlinear monolithic) | 23.29% | 1.2047 | p = 0.39 (n.s.) |
+| **RIVE** (modular ensemble) | **22.81%** | **1.2085** | — |
 | HAR-RV-X | 9.62% | — | p < 0.001 |
 | EWMA | 3.74% | — | p < 0.001 |
 
