@@ -7,6 +7,12 @@ current market-state snapshot; output: next-day log_rv.
 
 Training subsamples windows for speed; inference is fully vectorized. Device
 auto-selects MPS on Apple Silicon.
+
+PROCESS-ISOLATION RULE (macOS): torch and lightgbm bundle separate
+libomp.dylib copies; importing both in one process segfaults. Never put this
+forecaster in the same walk-forward run as LGBMForecaster — produce GRU
+forecasts in their own process (scripts write parquet; hedge_combine merges
+prediction frames afterward). Tests live in tests/torch_isolated/.
 """
 
 import numpy as np
