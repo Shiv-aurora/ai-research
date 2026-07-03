@@ -1,2 +1,45 @@
 [regimes] memberships...
 [baseline] per-stock ACI...
+[method] pooled panel x aligned bins (K=4)...
+[method] pooled panel x online HMM (K=3, soft)...
+
+=== E2 round 2 (alpha=0.1) ===
+               marginal   width  cov_calm  cov_normal  cov_elevated  cov_stress  cov_stress_upper  width_stress
+method                                                                                                         
+aci              0.8990  1.6979    0.8970      0.9049        0.9142      0.8388            0.8916        1.7981
+rc_panel_bins    0.8962  1.6753    0.8969      0.8962        0.8975      0.8828            0.9378        2.1695
+rc_panel_hmm     0.8973  1.6942    0.8950      0.9008        0.9077      0.8735            0.9282        2.1210
+
+=== days-since-entry profile (top slice) ===
+
+aci:
+        mean  size
+dse               
+1     0.8421  2951
+2     0.7482  1366
+3     0.8730   874
+4-5   0.8588  1742
+6-10  0.8086  3119
+>10   0.8695  4675
+
+rc_panel_bins:
+        mean  size
+dse               
+1     0.8756  2951
+2     0.7899  1366
+3     0.9039   874
+4-5   0.9036  1742
+6-10  0.8560  3119
+>10   0.9206  4675
+
+rc_panel_hmm:
+        mean  size
+dse               
+1     0.8536  2951
+2     0.7570  1366
+3     0.8867   874
+4-5   0.8955  1742
+6-10  0.8544  3119
+>10   0.9221  4675
+
+saved -> /Users/shivamarora/Documents/research-final/reports/e2_panel_summary.csv
