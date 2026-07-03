@@ -46,6 +46,7 @@ def run_walkforward(
     eval_start: str,
     eval_end: str | None = None,
     min_train_days: int = 500,
+    refit_every: int = 1,
     verbose: bool = True,
 ) -> WalkForwardResult:
     """Expanding-window walk-forward with quarterly refits.
@@ -83,8 +84,13 @@ def run_walkforward(
         fold_out = {"date_start": test_start, "date_end": test_end,
                     "n_train": int(train_mask.sum()), "n_test": int(test_mask.sum())}
         preds_this_fold = {}
+        # Sparse refits for expensive models: refitting every `refit_every`
+        # folds is still causal — the stale model saw only older data.
+        do_fit = (len(fold_rows) % refit_every == 0)
         for fc in forecasters:
-            fc.fit(train)
+            if do_fit or not getattr(fc, "_fitted_once", False):
+                fc.fit(train)
+                fc._fitted_once = True
             full_pred = fc.predict(context)
             preds_this_fold[fc.name] = full_pred.loc[test_idx]
         fold_rows.append(fold_out)
