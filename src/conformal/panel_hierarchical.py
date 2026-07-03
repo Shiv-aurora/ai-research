@@ -39,25 +39,41 @@ def run_panel_mondrian(
     offset_l2: float = 0.001,
     warmup_days: int = 100,
     scale_window: int = 250,
+    one_sided: bool = False,
+    score_col: str | None = None,
 ) -> pd.DataFrame:
-    """Pooled panel calibrator over a walk-forward predictions frame."""
+    """Pooled panel calibrator over a walk-forward predictions frame.
+
+    one_sided=True tracks only the upper threshold at level alpha (the risk
+    head: P(score > q) <= alpha). score_col overrides the default
+    MAD-standardized forecast residual with a caller-supplied score column
+    (e.g. standardized returns for the VaR application); it must already be
+    on a cross-sectionally comparable scale.
+    """
     K = membership.shape[1]
     if np.isscalar(eta_by_regime):
         eta_by_regime = [float(eta_by_regime)] * K
     eta = np.asarray(eta_by_regime)
-    a_side = alpha / 2.0
+    a_side = alpha if one_sided else alpha / 2.0
 
-    # per-stock standardized scores
-    parts = [standardized_scores(g.sort_values("date"), forecast_col,
-                                 window=scale_window)
-             for _, g in preds.groupby("ticker")]
-    df = pd.concat(parts).dropna(subset=["s_std"]).sort_values(["date", "ticker"])
+    # per-stock standardized scores (or caller-supplied score column)
+    if score_col is None:
+        parts = [standardized_scores(g.sort_values("date"), forecast_col,
+                                     window=scale_window)
+                 for _, g in preds.groupby("ticker")]
+        df = pd.concat(parts)
+    else:
+        df = preds.copy()
+        df["s_std"] = df[score_col]
+        df["sigma_hat"] = 1.0
+    df = df.dropna(subset=["s_std"]).sort_values(["date", "ticker"])
     df = df.reset_index(drop=True)
 
     dates = df["date"].unique()
     warmup_end = dates[min(warmup_days, len(dates) - 1)]
     warm_scores = df.loc[df["date"] <= warmup_end, "s_std"].values
-    q_lo = np.full(K, float(np.quantile(-warm_scores, 1 - a_side)))
+    q_lo = np.full(K, np.nan if one_sided
+                   else float(np.quantile(-warm_scores, 1 - a_side)))
     q_hi = np.full(K, float(np.quantile(warm_scores, 1 - a_side)))
 
     tickers = df["ticker"].unique()
@@ -76,12 +92,12 @@ def run_panel_mondrian(
             pi = np.full((1, K), 1.0 / K)
         pi = pi[0] / pi[0].sum()
 
-        ql = float(pi @ q_lo)
+        ql = np.nan if one_sided else float(pi @ q_lo)
         qh = float(pi @ q_hi)
         dl = delta.reindex(block["ticker"]).values
 
         s = block["s_std"].values
-        cov_lo = (-s) <= ql + dl
+        cov_lo = np.ones(len(s), dtype=bool) if one_sided else (-s) <= ql + dl
         cov_hi = s <= qh + dl
         covered = cov_lo & cov_hi
 
@@ -98,7 +114,8 @@ def run_panel_mondrian(
         # pooled per-regime update: one per-observation step per stock-day
         # (sum over the cross-section; eta is a per-observation step size)
         n = len(block)
-        q_lo += eta * pi * ((~cov_lo).sum() - a_side * n)
+        if not one_sided:
+            q_lo += eta * pi * ((~cov_lo).sum() - a_side * n)
         q_hi += eta * pi * ((~cov_hi).sum() - a_side * n)
 
         # per-stock offsets: own miss on either side, shrunk to zero
@@ -113,5 +130,8 @@ def run_panel_mondrian(
     df["covered_lo"] = out_cov[:, 1]
     df["covered_hi"] = out_cov[:, 2]
     df["warmup"] = warm_flag
-    df["width"] = (df["q_lo"] + df["q_hi"]) * df["sigma_hat"]
+    if one_sided:
+        df["width"] = df["q_hi"] * df["sigma_hat"]
+    else:
+        df["width"] = (df["q_lo"] + df["q_hi"]) * df["sigma_hat"]
     return df
