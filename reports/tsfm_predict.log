@@ -2,3 +2,23 @@ Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF
 Loading weights:   0%|          | 0/143 [00:00<?, ?it/s]Loading weights: 100%|██████████| 143/143 [00:00<00:00, 51924.98it/s]
 model=amazon/chronos-bolt-small device=mps
   200/4003 dates
+  400/4003 dates
+  600/4003 dates
+  800/4003 dates
+  1000/4003 dates
+  1200/4003 dates
+  1400/4003 dates
+  1600/4003 dates
+  1800/4003 dates
+  2000/4003 dates
+  2200/4003 dates
+  2400/4003 dates
+  2600/4003 dates
+  2800/4003 dates
+  3000/4003 dates
+  3200/4003 dates
+  3400/4003 dates
+  3600/4003 dates
+  3800/4003 dates
+  4000/4003 dates
+saved 391,481 rows -> /Users/shivamarora/Documents/research-final/data/processed_v2/tsfm_predictions.parquet

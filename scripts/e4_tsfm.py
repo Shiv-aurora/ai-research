@@ -75,6 +75,17 @@ def main() -> None:
     print(f"\n[b] RAW Chronos 80% band coverage (target 0.80):")
     print(cov_by_regime(df).round(4).to_string())
 
+    # directional misses: symmetric coverage can mask one-sided failure
+    df["exceed_up"] = df["target"] > df["q90"]
+    df["exceed_dn"] = df["target"] < df["q10"]
+    bins = pd.cut(df["vix_pctl"], [0, 0.5, 0.8, 0.95, 1.0],
+                  labels=["calm", "normal", "elevated", "stress"],
+                  include_lowest=True)
+    direc = df.groupby(bins, observed=True)[["exceed_up", "exceed_dn"]].mean()
+    direc.loc["marginal"] = df[["exceed_up", "exceed_dn"]].mean()
+    print("\n[b'] directional miss rates (nominal 10/10):")
+    print((direc * 100).round(2).to_string())
+
     # (c) regime-conditional conformal repair
     df["halfwidth"] = (df["q90"] - df["q10"]) / 2.0
     df = df[df["halfwidth"] > 1e-8]
