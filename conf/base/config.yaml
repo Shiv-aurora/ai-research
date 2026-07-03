@@ -16,7 +16,10 @@ data:
     estimators: [rv, bpv]                 # realized variance + bipower variation
 
 state_vars:
-  fred_series: [VIXCLS, DGS10, DGS3MO, BAA, AAA, BAMLH0A0HYM2]
+  # DBAA/DAAA = daily Moody's yields -> credit_spread. BAMLH0A0HYM2 (HY OAS) is
+  # excluded by default: keyless fredgraph caps it at ~3y of history and it is
+  # largely redundant with the Moody's spread; add it back if FRED_API_KEY is set.
+  fred_series: [VIXCLS, DGS10, DGS3MO, DBAA, DAAA]
   percentile_window_days: 750
 
 evaluation:
