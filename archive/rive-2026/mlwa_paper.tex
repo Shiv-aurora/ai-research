@@ -1,0 +1,819 @@
+\documentclass[review]{elsarticle}
+
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+\biboptions{sort&compress}
+
+\journal{Machine Learning with Applications}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{RIVE: Regime-Integrated Volatility Ensemble}
+
+\author[inst1]{Shivam Arora\corref{cor1}}
+\ead{sarora01@villanova.edu}
+\cortext[cor1]{Corresponding author.}
+
+\author[inst1]{Venkat Margapuri}
+\ead{venkatasivakumar.margapuri@villanova.edu}
+
+\affiliation[inst1]{
+  organization={Villanova University},
+  city={Villanova, PA},
+  country={United States}
+}
+
+\begin{abstract}
+Accurate volatility forecasting is difficult when predictive structure shifts across technical, information-driven, and attention-driven market regimes. This paper presents \textbf{RIVE} (Regime-Integrated Volatility Ensemble), a regime-aware modular machine learning framework for next-day realized volatility forecasting that combines heterogeneous signals from high-frequency prices, financial news, and trading-activity proxies. RIVE consists of three specialized modules: a ridge-regularized HAR-RV-X technical forecaster, a LightGBM news-risk classifier trained to detect large residual volatility events, and a LightGBM retail-regime classifier trained on abnormal volume and price-dynamics features. Their outputs are combined through a ridge-regularized meta-learner with calendar and short-horizon volatility features to forecast next-day log realized variance. We evaluate RIVE against two monolithic machine learning baselines that use the identical 47-feature information set: Elastic Net and LightGBM regression. On a fixed split with training data before 2023 and test data from 2023 onward, all three machine learning models achieve comparable accuracy, with test $R^2$ values of 23.57\% for Elastic Net, 23.29\% for LightGBM, and 23.04\% for RIVE. Diebold--Mariano tests show no statistically significant fixed-split accuracy difference between RIVE and LightGBM ($p=0.385$), while Elastic Net is slightly better than RIVE on fixed-split MSE ($p=0.0002$). Under a 12-fold expanding-window walk-forward evaluation, however, RIVE is the most stable model, achieving mean fold $R^2=19.39\%$ with standard deviation 9.94~pp, compared with 15.18\% and 16.80~pp for Elastic Net and 9.05\% and 56.20~pp for LightGBM. RIVE also attains the best ROC-AUC on top-decile volatility events (0.8051) and the lowest severe-underprediction rate (14.9\%). Leave-one-sector-out tests further show positive generalization across all held-out sectors for all models, with RIVE again exhibiting the lowest cross-sector dispersion. These results suggest that the main value of the modular design is not universal fixed-split superiority, but greater robustness under temporal and cross-sectional distribution shift together with stronger protection against extreme-volatility misses.
+\end{abstract}
+
+\begin{keyword}
+Machine learning \sep Volatility forecasting \sep Ensemble learning \sep Gradient boosting \sep Regime detection \sep Financial time series
+\end{keyword}
+
+\end{frontmatter}
+
+\section{Introduction}\label{introduction}
+
+Forecasting financial volatility requires combining signals that differ in source, frequency, and reliability. Historical prices capture persistence and long-memory structure, news reflects exogenous information shocks, and trading activity can reveal attention-driven regime changes. The practical challenge is that these channels do not contribute equally at all times. A model that performs well in one market regime may degrade when the dominant source of variation shifts.
+
+This makes volatility forecasting a useful test bed for applied machine learning under distribution shift. The core question is not merely whether a richer feature set improves point accuracy on a frozen train/test split. It is also whether a forecasting architecture remains reliable when market conditions change over time or when evaluated on sectors not emphasized in training. In this setting, robustness, calibration, and tail-risk sensitivity are at least as important as average point accuracy.
+
+Classical volatility models remain important baselines. ARCH and GARCH capture clustering in conditional variance \cite{engle1982,bollerslev1986}, while realized-volatility models exploit high-frequency returns to estimate latent volatility more directly \cite{andersen2001}. The HAR-RV-X framework is especially attractive because it captures multi-horizon dependence with a parsimonious linear structure \cite{corsi2009}. Yet these models remain primarily price-driven and respond imperfectly when volatility is triggered by abrupt information shocks or surges in market attention.
+
+A growing literature shows that textual and attention-based signals contain information about future volatility beyond lagged realized volatility. Measures of abnormal news flow, sentiment, and textual novelty have been linked to subsequent volatility changes \cite{tetlock2007,glasserman2019,bodilsen2025}. Investor attention and retail-driven participation also correlate with volatility dynamics, including evidence based on message-board activity, search intensity, and trading concentration \cite{antweiler2004,barber2008,da2011,vlastakis2012,audrino2020}. The difficulty is that these alternative signals are heterogeneous and often sparse. Their value is usually regime-dependent rather than uniformly additive.
+
+These considerations motivate a modular machine learning design. Instead of fitting one monolithic model to all signals at once, one can assign specialized predictive tasks to distinct modules and combine their outputs through a transparent meta-learner. Such a design may not always maximize fixed-split accuracy, but it can improve interpretability, isolate failure modes, and stabilize performance when the data-generating environment changes.
+
+This paper introduces RIVE (Regime-Integrated Volatility Ensemble), a regime-aware modular ensemble for next-day realized volatility forecasting. RIVE combines three modules: a ridge-regularized HAR-RV-X technical forecaster, a LightGBM news-risk classifier, and a LightGBM retail-regime classifier. Their outputs are fused by a ridge-regularized meta-learner together with short-horizon volatility and calendar features. Importantly, we evaluate RIVE against two strong monolithic machine learning baselines---Elastic Net and LightGBM regression---that use the identical 47-feature information set. This allows the paper to isolate architectural differences rather than confounding them with feature-budget advantages.
+
+The empirical results lead to a more nuanced conclusion than a simple claim of universal superiority. On a fixed split with training data before 2023 and testing data from 2023 onward, RIVE, Elastic Net, and LightGBM achieve similar accuracy. However, under expanding-window walk-forward evaluation, RIVE exhibits the lowest fold-to-fold variance and the mildest worst-case degradation. It also achieves the best ranking performance on extreme-volatility events and the lowest rate of severe underprediction. The evidence therefore suggests that the main value of modularity in this problem is improved robustness and tail protection under regime change rather than dominance on every average metric.
+
+The main contributions of this work are:
+\begin{itemize}
+    \item A regime-aware modular forecasting framework that separates technical persistence, news-driven risk, and attention-driven regime detection into specialized machine learning modules combined through a transparent regularized meta-learner.
+    \item A fair empirical comparison between modular and monolithic machine learning architectures using the exact same 47-feature information set (enumerated in Appendix~\ref{app:features}).
+    \item Evidence that modularity yields its main benefit through robustness under temporal and cross-sectional distribution shift and through better protection against extreme-volatility misses, rather than through universal fixed-split superiority.
+    \item A comprehensive evaluation protocol that includes fixed-split testing, Diebold--Mariano comparisons, walk-forward evaluation, leave-one-sector-out generalization, tail-event metrics, calibration analysis, and module-level ablation.
+\end{itemize}
+
+The rest of the paper is organized as follows. Section~\ref{literature-review} reviews related work. Section~\ref{methodology} presents the RIVE architecture. Section~\ref{experimental-setup} describes the data, baselines, and evaluation protocols. Section~\ref{sec:results} reports the main empirical findings. Section~\ref{sec:robustness} summarizes additional robustness checks. Section~\ref{sec:conclusion} concludes.
+
+\section{Related Work}\label{literature-review}
+
+\subsection{Volatility Forecasting with Realized Measures}\label{econometric-volatility-models}
+
+Volatility forecasting has traditionally been dominated by ARCH- and GARCH-type models, which represent conditional heteroskedasticity through lagged squared innovations and lagged conditional variance \cite{engle1982,bollerslev1986}. With the growth of high-frequency data, realized-volatility approaches became an important alternative because they estimate latent variance more directly from intraday returns \cite{andersen2001}. The HAR-RV-X model remains a widely used benchmark because it approximates long-memory behavior through daily, weekly, and monthly realized-volatility components in a simple linear form \cite{corsi2009}. Extensions incorporating jumps, leverage effects, or low-frequency macro components improve flexibility but remain primarily anchored to endogenous price dynamics \cite{andersen2007,patton2015,engle2008}.
+
+\subsection{Regime Dependence in Volatility Dynamics}\label{regime-switching}
+
+A substantial literature argues that volatility is inherently regime-dependent. Markov-switching models allow volatility processes to evolve differently across latent states \cite{hamilton1989}, and empirical work has shown that regime-sensitive specifications can improve risk forecasting relative to single-regime models \cite{ang2002,ardia2018}. HAR-based models also benefit from regime-aware extensions \cite{ma2019}. A limitation of many such approaches is that regime inference is usually price-driven. When regime transitions are triggered by exogenous information or abrupt surges in participation, models that rely only on lagged volatility can react with delay.
+
+\subsection{Alternative Data and Volatility Prediction}\label{alternative-data}
+
+Textual and attention-based data have been repeatedly linked to volatility dynamics. News sentiment, abnormal information flow, and textual novelty have been shown to forecast future volatility, especially during stressed periods \cite{tetlock2007,glasserman2019,bodilsen2025}. Attention-based proxies such as message-board activity, search intensity, and retail trading concentration also contain predictive information, though their usefulness is often concentrated in high-attention environments \cite{antweiler2004,barber2008,da2011,vlastakis2012,audrino2020}. This regime dependence suggests that alternative data may be more useful when modeled as structured auxiliary signals than when treated as uniformly additive regressors.
+
+\subsection{Monolithic and Modular Machine Learning Forecasting}\label{ensemble-expert-systems}
+
+Machine learning methods have become increasingly competitive in volatility forecasting. Large-scale evidence suggests that tabular machine learning models can outperform classical econometric alternatives in realized-volatility tasks \cite{christensen2023}. Hybrid and stacked approaches that combine complementary models have also shown promise \cite{bollerslev2016,ramos2019,selvaraj2025}. More broadly, stacked generalization provides a principled way to combine heterogeneous learners through a second-level model trained on their outputs \cite{wolpert1992}, while regularized linear combination remains attractive when interpretability is important \cite{breiman1996}. Related work in explainable financial ML emphasizes that strong predictive performance alone is not sufficient for high-stakes applications; transparent architectures are often preferred when users must understand which channels are driving forecast adjustments \cite{celik2022}.
+
+RIVE builds on this literature by comparing a modular architecture directly against strong monolithic machine learning baselines under a matched feature budget. This allows the paper to evaluate not only whether richer signals help, but also whether specialized modules improve robustness when the predictive environment shifts.
+
+\section{Methodology}\label{methodology}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{E3F2C004-19E4-43A6-9EBE-F087469560B5_1_201_a.jpeg}
+    \caption{Architecture of RIVE. Three specialized modules operate on distinct information channels and their outputs are combined by a ridge-regression meta-learner to generate next-day realized-volatility forecasts.}
+    \label{fig:rive-architecture}
+\end{figure}
+
+RIVE is a modular ensemble that forecasts one-day-ahead realized volatility for individual equities. It contains three specialized modules and a linear meta-learner. The technical module captures persistence and multi-horizon dependence from price-based variables. The news module estimates the probability of a news-driven volatility shock. The retail-regime module estimates the probability of a high-attention trading regime. The meta-learner combines these module outputs with short-horizon volatility and calendar features.
+
+The rationale for this design is straightforward. Historical volatility provides a strong baseline, but alternative data are sparse and regime-dependent. Modeling news and attention as auxiliary classification tasks stabilizes these channels and allows the meta-learner to use them primarily when they are informative.
+
+\subsection{Forecasting Target and Timing}\label{forecasting-target}
+
+Let $RV_t$ denote realized variance on day $t$, computed from five-minute intraday returns:
+\[
+RV_t = \sum_{i=1}^{M} r_{t,i}^{2},
+\]
+where $r_{t,i}$ is the $i$-th intraday return and $M$ is the number of five-minute intervals. The forecasting target is next-day log realized variance,
+\[
+h_t = \ln(RV_t).
+\]
+All models are trained to forecast $h_{t+1}$ using information available by the end of day $t$. Rolling features, moving averages, and volume measures are computed strictly backward in time. News features used for forecasting day $t+1$ include only items observed by the close of day $t$. This temporal discipline prevents look-ahead bias.
+
+\subsection{Technical Module}\label{technical-agent}
+
+The technical module provides the baseline forecast from price-based information. It extends the HAR-RV-X structure with squared returns, log VIX, and RSI, and is estimated by ridge regression:
+\begin{equation}\label{eq:tech-agent}
+\widehat{h}_{t+1|t}^{(\text{tech})}
+= \beta_0
++ \beta_D h_t^{(D)}
++ \beta_W h_t^{(W)}
++ \beta_M h_t^{(M)}
++ \beta_{r^2} r_t^2
++ \beta_{\text{VIX}} \ln(\text{VIX}_t)
++ \beta_{\text{RSI}} \text{RSI}_t
++ \varepsilon_{t+1},
+\end{equation}
+where $h_t^{(D)} = h_t$, $h_t^{(W)} = \frac{1}{5}\sum_{i=0}^{4} h_{t-i}$, and $h_t^{(M)} = \frac{1}{22}\sum_{i=0}^{21} h_{t-i}$. Ridge regularization mitigates multicollinearity among overlapping realized-volatility horizons.
+
+The module also produces one-step-ahead residuals,
+\[
+\text{resid}_{t}^{(\text{tech})} = h_t - \widehat{h}_{t|t-1}^{(\text{tech})},
+\]
+which define the target for the news module.
+
+\begin{table}[t]
+\centering
+\caption{Technical-module features.}
+\label{tab:technical-features}
+\begin{tabular}{lll}
+\hline
+Feature & Definition & Interpretation \\\hline
+$h_t^{(D)}$ & Daily log realized variance & Short-run persistence \\
+$h_t^{(W)}$ & 5-day average of log realized variance & Medium-run memory \\
+$h_t^{(M)}$ & 22-day average of log realized variance & Long-run memory \\
+$r_t^2$ & Squared daily return & Recent shock magnitude \\
+$\ln(\text{VIX}_t)$ & Log VIX & Forward-looking market risk \\
+$\text{RSI}_t$ & 14-day RSI & Short-term momentum \\\hline
+\end{tabular}
+\end{table}
+
+\subsection{News Module}\label{news-agent}
+
+The news module estimates the probability of a large volatility event not already explained by the technical module. Rather than regressing volatility directly on news variables, it frames the task as binary classification.
+
+\paragraph{Target.}
+An extreme event is defined when the technical-module residual exceeds the 80th percentile of its training-sample distribution:
+\begin{equation}\label{eq:news-target}
+Y_t^{(\text{news})} =
+\begin{cases}
+1, & \text{if } \text{resid}_{t}^{(\text{tech})} > Q_{0.80}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{equation}
+
+\paragraph{Features.}
+News items are aggregated over the previous four trading days using fixed decay weights $\{0.50,0.25,0.15,0.10\}$. Features include article counts, average sentiment, decayed sentiment, shock indicators for abnormal news flow, and topic components obtained by applying PCA to TF--IDF representations.
+
+\paragraph{Model.}
+The classifier is implemented with LightGBM \cite{ke2017}. It outputs
+\[
+p_t^{(\text{news})} = \Pr\!\left(Y_t^{(\text{news})}=1\right),
+\]
+which is passed to the meta-learner as a continuous risk score. In the recorded run, the news module achieves AUC $=0.558$.
+
+\begin{table}[t]
+\centering
+\caption{News-module features.}
+\label{tab:news-features}
+\begin{tabular}{lll}
+\hline
+Feature & Definition & Interpretation \\\hline
+News count & Number of recent news items & Information-flow intensity \\
+Sentiment (avg) & Mean sentiment score & Direction of information risk \\
+Sentiment (decayed) & Fixed-weight decayed sentiment & Recency-weighted impact \\
+Shock indicator & Abnormal news volume flag & Abrupt information shock \\
+Topic PCA 1--10 & PCA of TF--IDF features & Dominant news themes \\\hline
+\end{tabular}
+\end{table}
+
+\subsection{Retail-Regime Module}\label{retail-regime-agent}
+
+The retail-regime module estimates whether the market is entering a high-attention regime associated with abnormal participation and more fragile volatility dynamics.
+
+\paragraph{Target.}
+A high-attention day is defined as
+\begin{equation}\label{eq:retail-regime}
+\text{HighAttn}_t =
+\mathbb{I}\!\left(
+\frac{\text{Volume}_t}{\text{MA}_{20}(\text{Volume})_t} > \tau
+\right),
+\end{equation}
+where $\tau=1.5$ in the baseline specification and is calibrated using training data only.
+
+\paragraph{Features.}
+The feature set includes raw volume shock, a smoothed volume-shock measure, a synthetic retail-attention proxy derived from price and volume dynamics, a z-score of volume shock, and price acceleration.
+
+\paragraph{Model.}
+This module also uses LightGBM. It outputs
+\[
+p_{t+1}^{(\text{retail})} = \Pr\!\left(\text{HighAttn}_{t+1}=1 \mid \mathcal{F}_t\right),
+\]
+where $\mathcal{F}_t$ is the end-of-day information set. Both the probability and a thresholded binary regime flag are used by the meta-learner.
+
+\begin{table}[t]
+\centering
+\caption{Retail-regime-module features.}
+\label{tab:retail-features}
+\begin{tabular}{lll}
+\hline
+Feature & Definition & Interpretation \\\hline
+Volume shock & Volume / 20-day MA(volume) & Abnormal participation \\
+Smoothed volume shock & 3-day rolling average of volume shock & Sustained abnormal activity \\
+Retail-attention proxy & Synthetic price/volume proxy & Attention intensity \\
+Volume shock z-score & Standardized volume shock & Extremeness of current activity \\
+Price acceleration & Second difference of log price & Momentum shift / speculation \\\hline
+\end{tabular}
+\end{table}
+
+\subsection{Meta-Learner}\label{rive-coordinator}
+
+The meta-learner is a ridge-regression combiner that uses module outputs and a small number of auxiliary features. Let $Z_t \in \mathbb{R}^{10}$ denote the end-of-day feature vector. The final forecast is
+\begin{equation}\label{eq:coordinator}
+\widehat{h}_{t+1|t} = w^\top Z_t + c,
+\end{equation}
+where $(w,c)$ minimize
+\[
+\min_{w,c} \sum_{t \in \mathcal{T}_{\text{train}}} \left(h_{t+1}-w^\top Z_t-c\right)^2 + \lambda \|w\|_2^2.
+\]
+The ridge penalty is tuned within the training sample. The meta-learner is linear by design so that the role of each information channel remains directly interpretable.
+
+Its inputs are the technical forecast, the news-risk score, the retail-regime score, Monday/Friday/Q4 indicators, 5-day and 10-day volatility averages, 5-day volatility standard deviation, and a news--retail interaction term.
+
+\begin{table}[t]
+\centering
+\caption{Meta-learner inputs.}
+\label{tab:coordinator-features}
+\begin{tabular}{lll}
+\hline
+Feature & Definition & Interpretation \\\hline
+$\widehat{h}_{t+1|t}^{(\text{tech})}$ & Technical-module forecast & Baseline volatility estimate \\
+$p_t^{(\text{news})}$ & News-risk score & Probability of news-driven shock \\
+$p_{t+1}^{(\text{retail})}$ & Retail-regime score & Probability of high-attention regime \\
+$\text{is\_Monday}$ & Monday indicator & Weekend information accumulation \\
+$\text{is\_Friday}$ & Friday indicator & Pre-weekend positioning \\
+$\text{is\_Q4}$ & Fourth-quarter indicator & Seasonal pattern \\
+$\text{vol\_MA5}$ & 5-day average realized volatility & Short-term trend \\
+$\text{vol\_MA10}$ & 10-day average realized volatility & Medium-term trend \\
+$\text{vol\_std5}$ & 5-day volatility std. dev. & Recent instability \\
+$\text{news}\times\text{retail}$ & Interaction term & Joint amplification \\\hline
+\end{tabular}
+\end{table}
+
+\section{Experimental Setup}\label{experimental-setup}
+
+\subsection{Data and Stock Universes}\label{data-and-instruments}
+
+The sample spans 2018-01-01 through 2024-12-31, with realized-volatility targets available from 2020-12-01 onward after rolling-window warm-up. Realized variance is computed from five-minute intraday returns obtained from Polygon.io. News data are collected from Polygon.io's news endpoint and aggregated at daily frequency. VIX is obtained from Yahoo Finance. Attention-related features are constructed from price and volume data; no external social-media or search-intensity feeds are used in the present implementation.
+
+Two stock universes are used. The first is \emph{GICS-55}, a balanced universe containing five large-cap S\&P 500 constituents from each of the eleven GICS sectors. The second is \emph{Top-50}, a high-liquidity universe selected by average turnover, with one ticker dropped because of incomplete coverage, yielding 49 names in the reported results.
+
+\begin{table}[t]
+\centering
+\caption{GICS-55 universe: sector composition and representative constituents.}
+\label{tab:gics-composition}
+\begin{tabular}{llc}
+\hline
+GICS Sector & Representative Tickers & Stocks \\\hline
+Information Technology & AAPL, MSFT, NVDA, AVGO, ORCL & 5 \\
+Financials & BRK.B, JPM, V, MA, BAC & 5 \\
+Health Care & LLY, UNH, JNJ, MRK, ABBV & 5 \\
+Consumer Discretionary & AMZN, TSLA, HD, MCD, BKNG & 5 \\
+Communication Services & GOOGL, GOOG, META, NFLX, TMUS & 5 \\
+Industrials & CAT, UNP, GE, UBER, RTX & 5 \\
+Consumer Staples & WMT, PG, COST, KO, PEP & 5 \\
+Energy & XOM, CVX, COP, WMB, EOG & 5 \\
+Utilities & NEE, SO, DUK, CEG, AEP & 5 \\
+Real Estate & PLD, AMT, EQIX, WELL, SPG & 5 \\
+Materials & LIN, SHW, FCX, ECL, NEM & 5 \\\hline
+\multicolumn{2}{l}{\textbf{Total}} & \textbf{55} \\\hline
+\end{tabular}
+\end{table}
+
+\subsection{Benchmark Models}\label{benchmark-models-setup}
+
+The primary scientific comparison in this paper is between modular and monolithic machine learning architectures. We therefore evaluate RIVE against two monolithic ML baselines that use the exact same 47 end-of-day features:
+\begin{itemize}
+    \item \textbf{Elastic Net}: a linear monolithic baseline that tests whether strong performance can be obtained by regularized linear regression on the full feature set.
+    \item \textbf{LightGBM regressor}: a nonlinear monolithic baseline that tests whether a single strong tabular learner can match or exceed modular performance when given the full feature budget.
+\end{itemize}
+
+For context, we also compare against secondary classical baselines: HAR-RV-X, EWMA, GARCH(1,1)-Normal, GARCH(1,1)-Student-$t$, and GJR-GARCH. These models serve as domain-standard reference points rather than the main architectural comparison.
+
+\begin{table}[t]
+\centering
+\caption{Benchmark models used in the empirical study.}
+\label{tab:benchmark-specs}
+\begin{tabular}{llll}
+\hline
+Model & Type & Feature budget & Role in study \\\hline
+Elastic Net & Monolithic ML & Full 47 features & Linear matched-feature baseline \\
+LightGBM regressor & Monolithic ML & Full 47 features & Nonlinear matched-feature baseline \\
+RIVE & Modular ML & Full 47 features via modules & Main proposed model \\
+HAR-RV-X & Classical / realized-volatility & Technical features only & Secondary financial baseline \\
+EWMA & Classical volatility & Return variance only & Secondary baseline \\
+GARCH(1,1)-N & Classical volatility & Return variance only & Secondary baseline \\
+GARCH(1,1)-$t$ & Classical volatility & Return variance only & Secondary baseline \\
+GJR-GARCH & Classical volatility & Return variance only & Secondary baseline \\\hline
+\end{tabular}
+\end{table}
+
+\subsection{Evaluation Protocols}\label{evaluation-protocol}
+
+We use four complementary evaluation protocols. The primary point-forecast metric throughout the paper is out-of-sample $R^2$ on next-day log realized variance ($h_{t+1}$). For fixed-split comparisons, statistical significance is assessed with Diebold--Mariano tests \cite{diebold1995} using MSE loss and Newey--West HAC standard errors \cite{newey1987} with bandwidth $h=1$. Calibration is assessed via Mincer--Zarnowitz regressions \cite{mincer1969}.
+
+\paragraph{Fixed-split evaluation.}
+All observations prior to 2023-01-01 are used for training, and all observations from 2023 onward are used for testing. Hyperparameters are set once using training data only (RIVE: Ridge $\alpha=100$; LightGBM: $n_{\text{estimators}}=500$, learning rate $=0.03$, max depth $=4$, $\text{num\_leaves}=15$; Elastic Net: $\alpha$ and $\ell_1$-ratio selected via three-fold cross-validation within the training set over an explicit grid of 50 $\alpha$ values in $[10^{-4},10^{2}]$ and $\ell_1$-ratio $\in \{0.1,0.5,0.9,0.99\}$). This split produces the main static comparison and is the basis for the Diebold--Mariano tests and calibration analysis.
+
+\paragraph{Expanding-window walk-forward evaluation.}
+To evaluate temporal robustness, all three models are re-estimated from scratch in an expanding-window scheme across 12 quarterly folds covering 2022-Q1 through 2024-Q4. The initial training window spans 2018-01 through 2021-12 (approximately four years). For fold $k$, training uses all data from the beginning of the sample up to the start of the $k$-th test quarter, and predictions are generated for the subsequent quarter. The window expands by one quarter per fold; no data are discarded.
+
+Hyperparameters are \emph{frozen} across all folds at the values described above. They are not re-tuned inside each fold. This is a deliberate choice: it tests whether the same configuration remains stable across regimes, rather than whether a tuning procedure can recover from instability.
+
+We report two complementary $R^2$ statistics. \emph{Pooled OOS~$R^2$} concatenates all 12 quarters of out-of-sample predictions into a single vector and computes a single $R^2$ against the corresponding actuals. \emph{Mean fold~$R^2$} averages the 12 per-fold $R^2$ values, giving equal weight to each quarter regardless of its size. Pooled $R^2$ can exceed mean fold $R^2$ because later folds have larger training sets and typically produce better predictions; pooling gives those larger, better-performing folds more weight. We also report fold-to-fold standard deviation, worst fold, best fold, and the number of folds with positive $R^2$.
+
+\paragraph{Leave-one-sector-out (LOSO) evaluation.}
+To assess cross-sectional generalization, we hold out all tickers belonging to one GICS sector, train each model on the remaining sectors using only pre-2023 data (matching the fixed-split temporal discipline), and evaluate on the held-out sector's post-2023 observations. This procedure is repeated across all sectors with sufficient data. The protocol therefore applies both a cross-sectional and a temporal split simultaneously: the model never sees the held-out sector during training, and it never sees post-2023 data during training regardless of sector.
+
+\paragraph{Tail-event evaluation.}
+Because one motivation for the modular architecture is improved sensitivity to stressed periods, we evaluate ranking and miss behavior on extreme-volatility days. We define the following metrics precisely:
+
+\begin{itemize}[nosep]
+    \item \textbf{Top-decile event}: a test-set observation whose actual $h_{t+1}$ exceeds the 90th percentile of all test-set $h_{t+1}$ values.
+    \item \textbf{ROC-AUC}: the area under the receiver operating characteristic curve, treating the continuous forecast $\widehat{h}_{t+1}$ as a score and the top-decile indicator as the binary label. This measures how well the forecast \emph{ranks} extreme days relative to non-extreme days.
+    \item \textbf{F1 score}: harmonic mean of precision and recall, where a predicted extreme event is defined as $\widehat{h}_{t+1}$ exceeding its own 90th test-set percentile. Both ROC-AUC and F1 are computed on the same binary target.
+    \item \textbf{Severe underprediction rate}: among actual top-decile days, the fraction for which the model's forecast falls below the \emph{median} of all test-set forecasts. This captures how often the model catastrophically misses a large-volatility day by placing it in the lower half of its forecast distribution.
+\end{itemize}
+
+\paragraph{Stress-quintile ablation.}
+In Section~\ref{sec:ablation}, we stratify test-set observations into five quintiles based on a composite stress score defined as the sum of z-scored news-risk, retail-risk, and lagged-volatility signals (each standardized to zero mean and unit variance within the test set). Within each quintile, we compare $R^2$ between the full RIVE model and a core model that omits the news and retail module outputs. Significance stars in Table~\ref{tab:stress-quintile} are based on a paired one-sided $t$-test on squared forecast errors (full versus core) within each quintile, with $^{*}p<0.05$, $^{**}p<0.01$, and $^{***}p<0.001$.
+
+\subsection{Feature-Budget Fairness}\label{implementation}
+
+A key concern in modular-versus-monolithic comparisons is whether one model benefits from access to a richer information set. To eliminate this concern, the monolithic Elastic Net and LightGBM baselines are constructed using the same 47 end-of-day features available to RIVE. Appendix~\ref{app:features} lists every feature, its definition, and the RIVE module that consumes it. In the recorded feature audit, the Jaccard similarity between the monolithic and modular feature budgets is 1.0, confirming a perfectly matched information budget.
+
+\section{Results and Discussion}\label{sec:results}
+
+\subsection{Fixed-Split Comparison: Modular versus Monolithic ML}\label{sec:fixed-split-ml}
+
+Table~\ref{tab:ml-fixed-split} presents the primary fixed-split comparison among the three machine learning models. All three are in the same performance range. Elastic Net attains the highest fixed-split $R^2$ at 23.57\%, followed by LightGBM at 23.29\% and RIVE at 23.04\%. These results indicate that on a frozen split, the information set matters more than the architectural choice.
+
+\begin{table}[H]
+\centering
+\caption{Fixed-split comparison among matched-feature machine learning models (train $<$ 2023, test $\geq$ 2023).}
+\label{tab:ml-fixed-split}
+\begin{tabular}{lccc}
+\toprule
+Model & Test $R^2$ (\%) & RMSE & MAE \\
+\midrule
+Elastic Net & 23.57 & 1.2025 & 0.7131 \\
+LightGBM & 23.29 & 1.2047 & 0.6798 \\
+RIVE & 23.04 & 1.2085 & 0.6930 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The important point is not that RIVE is the best fixed-split model on every metric. It is not. Rather, RIVE remains competitive with both monolithic baselines while using a transparent linear combiner on top of specialized modules.
+
+\subsection{Diebold--Mariano Tests among the ML Models}\label{sec:dm-ml}
+
+Table~\ref{tab:dm-ml} reports pairwise Diebold--Mariano tests under squared loss for the fixed-split forecasts. The difference between RIVE and LightGBM is not statistically significant ($p=0.385$), which supports the statement that the two models are comparable in point accuracy on the fixed split. Elastic Net is slightly better than RIVE on fixed-split MSE ($p=0.0002$). The difference between LightGBM and Elastic Net is not statistically significant.
+
+\begin{table}[H]
+\centering
+\caption{Diebold--Mariano tests among matched-feature machine learning models on the fixed split.}
+\label{tab:dm-ml}
+\begin{tabular}{lccc}
+\toprule
+Comparison & DM statistic & $p$-value & Interpretation \\
+\midrule
+RIVE vs LightGBM & $-0.87$ & 0.385 & Not significant \\
+RIVE vs Elastic Net & $-3.68$ & 0.0002 & Elastic Net better on MSE \\
+LightGBM vs Elastic Net & $-0.54$ & 0.586 & Not significant \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These tests are important for framing the paper correctly. The contribution is not universal fixed-split superiority. The contribution is that RIVE achieves statistically comparable fixed-split accuracy to a strong nonlinear monolithic learner while delivering better robustness under shift, as shown next.
+
+\subsection{Walk-Forward Robustness under Temporal Shift}\label{sec:walk-forward}
+
+The central empirical result of the paper appears in the walk-forward evaluation. Table~\ref{tab:walkforward} shows that although LightGBM achieves the highest pooled out-of-sample $R^2$, it is far less stable across folds. RIVE attains the highest mean fold $R^2$ (19.39\%), the lowest standard deviation (9.94~pp), and only one slightly negative fold ($-9.1\%$). LightGBM is much more unstable, with standard deviation 56.20~pp and a worst fold of $-164.9\%$. Elastic Net is intermediate.
+
+\begin{table}[H]
+\centering
+\caption{Expanding-window walk-forward evaluation across 12 quarterly folds.}
+\label{tab:walkforward}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+Model & Pooled OOS $R^2$ (\%) & Mean fold $R^2$ (\%) & Std (pp) & Min (\%) & Max (\%) & Folds $>0$ \\
+\midrule
+RIVE & 25.97 & 19.39 & 9.94 & $-9.1$ & 31.5 & 11/12 \\
+LightGBM & 27.89 & 9.05 & 56.20 & $-164.9$ & 40.2 & 10/12 \\
+Elastic Net & 26.33 & 15.18 & 16.80 & $-35.0$ & 27.6 & 11/12 \\
+\bottomrule
+\end{tabular}
+\normalsize
+\end{table}
+
+This table changes the interpretation of the entire paper. On a single frozen split, all three ML models look similar. Under repeated temporal shifts, however, the modular design is clearly more reliable. The results suggest that RIVE trades a small amount of peak performance for a substantial gain in stability. For a forecasting application exposed to regime changes, that is a meaningful advantage.
+
+\subsection{Tail-Event Performance}\label{sec:tail-events}
+
+Table~\ref{tab:tail-metrics} evaluates performance on top-decile volatility events. RIVE achieves the best ROC-AUC (0.8051) and the lowest severe-underprediction rate (14.9\%), indicating that it misses extreme-volatility days less often than the monolithic baselines. LightGBM attains the highest F1 score, so the advantage is not uniform across all tail metrics. Still, the two metrics most aligned with the motivation for RIVE's regime-sensitive design---ranking extreme events and avoiding catastrophic misses---favor the modular model.
+
+\begin{table}[H]
+\centering
+\caption{Tail-event performance on top-decile realized-volatility days.}
+\label{tab:tail-metrics}
+\begin{tabular}{lccc}
+\toprule
+Model & ROC-AUC & Severe underpred. rate & F1 \\
+\midrule
+RIVE & 0.8051 & 14.9\% & 0.4309 \\
+LightGBM & 0.8035 & 15.6\% & 0.4669 \\
+Elastic Net & 0.8004 & 16.1\% & 0.4348 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This pattern is consistent with the architecture: the auxiliary news- and attention-based modules are not designed primarily to maximize average point accuracy; they are designed to provide regime-sensitive corrections when risk is changing quickly.
+
+\subsection{Leave-One-Sector-Out Generalization}\label{sec:loso}
+
+Cross-sectional robustness is examined using leave-one-sector-out tests. Table~\ref{tab:loso} shows that all three machine learning models generalize positively to every held-out sector, with positive mean $R^2$ in all cases. Elastic Net achieves the highest mean LOSO $R^2$ (17.68\%), but RIVE again has the lowest dispersion (8.03~pp). LightGBM is the least stable.
+
+\begin{table}[H]
+\centering
+\caption{Leave-one-sector-out generalization across the eleven GICS sectors.}
+\label{tab:loso}
+\begin{tabular}{lccc}
+\toprule
+Model & Mean $R^2$ (\%) & Std (pp) & All sectors $>0$ \\
+\midrule
+RIVE & 15.64 & 8.03 & Yes \\
+LightGBM & 14.94 & 10.47 & Yes \\
+Elastic Net & 17.68 & 9.05 & Yes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Together with the walk-forward results, this suggests a coherent trade-off. Elastic Net is a strong and surprisingly difficult linear baseline. LightGBM is competitive but more volatile. RIVE is not the best on every mean metric, but it is the most stable across both time and held-out sectors.
+
+\subsection{Calibration and the Accuracy--Robustness Trade-off}\label{sec:calibration}
+
+Table~\ref{tab:mz-regression} reports Mincer--Zarnowitz regression coefficients for the three machine learning models. LightGBM is the best calibrated model, with intercept and slope closest to the ideal $(0,1)$ pair. Elastic Net is moderately biased. RIVE exhibits a positive intercept and slope above one, indicating a modest tendency to over-react to predictive signals.
+
+\begin{table}[H]
+\centering
+\caption{Mincer--Zarnowitz calibration coefficients for the fixed-split forecasts.}
+\label{tab:mz-regression}
+\begin{tabular}{lccc}
+\toprule
+Model & $\alpha$ & $\beta$ & Verdict \\
+\midrule
+RIVE & +1.00 & 1.11 & More reactive / positive intercept bias \\
+LightGBM & +0.14 & 1.03 & Best calibrated \\
+Elastic Net & +0.47 & 1.04 & Moderate bias \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This result does not undermine the paper. It clarifies the trade-off. The modular architecture improves stability and tail protection, while the nonlinear monolithic learner offers better pointwise calibration on the fixed split.
+
+\subsection{Secondary Comparison to Classical Baselines}\label{sec:classical-baselines}
+
+Although the main scientific comparison is modular versus monolithic ML, classical baselines remain useful as domain references. Table~\ref{tab:classical-results} shows that all three machine learning models operate in a substantially stronger performance regime than the secondary econometric baselines on the GICS-55 fixed split. In particular, the ML models substantially exceed HAR-RV-X (9.62\%) and EWMA (3.74\%).
+
+\begin{table}[H]
+\centering
+\caption{Secondary comparison to classical baselines on the GICS-55 fixed split.}
+\label{tab:classical-results}
+\begin{tabular}{lc}
+\toprule
+Model & Test $R^2$ (\%) \\
+\midrule
+Elastic Net & 23.57 \\
+LightGBM & 23.29 \\
+RIVE & 23.04 \\
+HAR-RV-X & 9.62 \\
+EWMA & 3.74 \\
+GARCH(1,1)-Normal & $-49.68$ \\
+GJR-GARCH & $-48.42$ \\
+GARCH(1,1)-Student-$t$ & $-12.44$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The very poor $R^2$ values for the GARCH family are best interpreted as a target mismatch: these models forecast conditional return variance, whereas the current evaluation target is next-day log realized variance constructed from five-minute returns \cite{andersen1998,hansen2005}. We therefore treat the classical baselines as secondary context rather than the core architectural comparison.
+
+\subsection{Module-Level Ablation and Regime-Conditional Gains}\label{sec:ablation}
+
+The previous subsections compared full models at the raw-feature level. We now turn to the internal behavior of RIVE itself. Table~\ref{tab:ablation-arch} studies the architecture at the module-output level. These experiments do \emph{not} duplicate the monolithic baselines, because the monolithic baselines use the full 47-feature set, while the ablation below studies what happens when only module outputs are linearly combined.
+
+\begin{table}[H]
+\centering
+\caption{Architecture-level ablation on the GICS-55 universe. These experiments operate on module outputs and are distinct from the full-feature monolithic baselines.}
+\label{tab:ablation-arch}
+\begin{tabular}{lccc}
+\toprule
+Model configuration & $R^2$ (\%) & RMSE & Interpretation \\
+\midrule
+Technical forecast only & 3.9 & 1.349 & Module output only \\
+Technical + news (linear) & 3.8 & 1.349 & Linear news augmentation \\
+Technical + retail (linear) & 5.2 & 1.339 & Linear attention augmentation \\
+Technical + news + retail (linear) & 4.8 & 1.342 & Naive linear module fusion \\
+\textbf{RIVE (full)} & \textbf{23.0} & \textbf{1.207} & Regime-aware module fusion \\
+\midrule
+RIVE without news module & 23.6 & 1.202 & No news-risk channel \\
+RIVE without retail module & 22.7 & 1.210 & No attention-regime channel \\
+News + retail only (no technical module) & $-9.6$ & 1.440 & No volatility-memory backbone \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The table highlights two important points. First, simply linearly combining module outputs is not enough; the gains come from regime-aware combination with momentum, calendar, and interaction features. Second, the technical module remains indispensable. Alternative-data modules do not replace the volatility-memory backbone; they augment it.
+
+The feature-group ablation in Table~\ref{tab:ablation-features} reinforces this interpretation. Momentum and calendar features provide the largest aggregate gains inside the meta-learner, while the alternative-data modules contribute more selectively.
+
+\begin{table}[H]
+\centering
+\caption{Feature-group ablation inside the RIVE meta-learner on GICS-55. Baseline $R^2=23.04\%$.}
+\label{tab:ablation-features}
+\begin{tabular}{lcc}
+\toprule
+Feature removed & $\Delta R^2$ (pp) & Rank \\
+\midrule
+Momentum (vol\_MA5, vol\_MA10, vol\_std5) & $-9.82$ & 1 \\
+Calendar (Friday, Monday, Q4) & $-7.97$ & 2 \\
+Technical forecast & $-1.42$ & 3 \\
+Retail-regime score & $-0.36$ & 4 \\
+News-risk score & $+0.43$ & 5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At the aggregate level, removing the news-risk score slightly increases $R^2$. This does not mean the news module is useless. It means its contribution is conditional on the operating regime. Table~\ref{tab:stress-quintile} shows this directly.
+
+\begin{table}[H]
+\centering
+\caption{Stress-stratified ablation: $R^2$ difference (pp) between full RIVE and a core model containing only the technical forecast, momentum, and calendar features. Quintiles are based on a composite stress score (sum of z-scored news-risk, retail-risk, and lagged volatility). Significance is from a paired one-sided $t$-test on squared errors: $^{*}p<0.05$, $^{**}p<0.01$, $^{***}p<0.001$.}
+\label{tab:stress-quintile}
+\begin{tabular}{lccc}
+\toprule
+Stress quintile & Full $-$ Core (pp) & Significance & Winner \\
+\midrule
+Q1 (calmest) & $-2.46$ & $^{***}$ & Core \\
+Q2 & $+0.09$ &  & Full \\
+Q3 & $+0.40$ & $^{*}$ & Full \\
+Q4 & $+0.42$ & $^{*}$ & Full \\
+Q5 (most stressed) & $+0.89$ & $^{**}$ & Full \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The incremental value of the alternative-data modules increases monotonically with stress intensity. This is exactly the pattern one would expect if modular regime-sensitive signals are most useful during information-rich or attention-rich periods and less useful in calm environments. In that sense, the ablation results are fully consistent with the main empirical narrative of the paper.
+
+\section{Additional Robustness Checks}\label{sec:robustness}
+
+\subsection{Permutation Test}\label{sec:validation-suite}
+
+To guard against overfitting and accidental target leakage, we conducted a permutation test in which the meta-learner inputs were randomly shuffled. This destroys the alignment between predictors and targets while preserving marginal feature distributions. In the recorded run, the shuffled version collapsed to mean $R^2=-9.78\%$, indicating that the reported performance relies on genuine predictive structure rather than spurious correlation.
+
+\subsection{Feature-Budget Audit}\label{sec:feature-budget-audit}
+
+The monolithic and modular comparisons were also subjected to a feature-budget audit. The monolithic Elastic Net and LightGBM baselines used exactly the same 47 end-of-day features available to RIVE (listed in Appendix~\ref{app:features}), yielding Jaccard similarity 1.0. No feature exhibited a correlation above 0.95 with the target, and all features are either lagged by at least one day or derived from same-day end-of-day data available before the target day opens. This confirms that the comparison isolates the role of architecture rather than information access, and that the feature set is free of look-ahead bias.
+
+\section{Conclusion}\label{sec:conclusion}
+
+This paper introduced RIVE, a regime-aware modular ensemble for next-day realized-volatility forecasting. RIVE combines a ridge-regularized HAR-RV-X technical forecaster, a news-risk classifier, and a retail-regime classifier through a transparent ridge-regression meta-learner. The study compared this modular design against two strong monolithic machine learning baselines---Elastic Net and LightGBM regression---using an identical 47-feature information set.
+
+The main result is not that RIVE dominates every benchmark on every metric. On a fixed split, all three machine learning models achieve similar point accuracy, and Elastic Net is slightly better than RIVE on fixed-split MSE. The contribution of RIVE emerges more clearly under distribution shift. In expanding-window walk-forward evaluation, RIVE is the most stable model, with the lowest fold-to-fold standard deviation (9.94~pp versus 56.20~pp for LightGBM) and much milder worst-case degradation. In top-decile volatility events, RIVE also achieves the best ROC-AUC and the lowest severe-underprediction rate. Leave-one-sector-out tests further show that all three machine learning models generalize positively across all held-out sectors, with RIVE again exhibiting the lowest cross-sector dispersion (8.03~pp).
+
+These findings support three broader takeaways. First, in this problem the feature set matters enough that strong linear and nonlinear monolithic baselines are highly competitive on a frozen split. Second, modularity can still be valuable because it improves robustness when the predictive environment changes over time or across sectors. Third, the main benefit of the modular design appears in tail protection and stability, not in universal fixed-split superiority.
+
+More generally, the paper suggests that modular forecasting architectures can be useful when heterogeneous signals are sparse, regime-dependent, and only intermittently informative. Future work could examine stronger post-hoc calibration of the modular forecasts, adaptive meta-learning schemes that respond more explicitly to detected regime state, and extensions to intraday forecasting or other asset classes.
+
+\newpage
+\vspace{1em}
+\noindent\textbf{Acknowledgements / Funding.}
+This work was supported by the \emph{Villanova Undergraduate Research Fellows Summer Program (VURF)}, Villanova University.
+
+\vspace{0.5em}
+\noindent\textbf{Declaration of competing interests.}
+The authors declare no competing interests.
+
+\vspace{0.5em}
+\noindent\textbf{Data availability.}
+The data that support the findings of this study are available from commercial providers (e.g., Polygon.io/Massive.com). Restrictions apply to the availability of these data under license agreements. Derived features and code may be made available upon reasonable request.
+
+\newpage
+\begin{thebibliography}{99}
+
+\bibitem{andersen1998}
+Andersen, T. G., \& Bollerslev, T. (1998). Answering the skeptics: Yes, standard volatility models do provide accurate forecasts. \emph{International Economic Review, 39}(4), 885--905.
+
+\bibitem{bollerslevhodrick1999}
+Bollerslev, T., \& Hodrick, R. J. (1999). Financial market efficiency tests. \emph{Handbook of Applied Econometrics}, 1, 415--458.
+
+\bibitem{diebold1995}
+Diebold, F. X., \& Mariano, R. S. (1995). Comparing predictive accuracy. \emph{Journal of Business \& Economic Statistics, 13}(3), 253--263.
+
+\bibitem{engelberg2011}
+Engelberg, J., \& Parsons, C. A. (2011). The causal impact of media in financial markets. \emph{Journal of Finance, 66}(1), 67--97.
+
+\bibitem{french1986}
+French, K. R., \& Roll, R. (1986). Stock return variances: The arrival of information and the reaction of traders. \emph{Journal of Financial Economics, 17}(1), 5--26.
+
+\bibitem{glosten1993}
+Glosten, L. R., Jagannathan, R., \& Runkle, D. E. (1993). On the relation between the expected value and the volatility of the nominal excess return on stocks. \emph{Journal of Finance, 48}(5), 1779--1801.
+
+\bibitem{jpm1996}
+J.P.\ Morgan. (1996). \emph{RiskMetrics Technical Document} (4th ed.). J.P.\ Morgan/Reuters.
+
+\bibitem{mincer1969}
+Mincer, J., \& Zarnowitz, V. (1969). The evaluation of economic forecasts. In \emph{Economic Forecasts and Expectations: Analysis of Forecasting Behavior and Performance} (pp.\ 3--46). National Bureau of Economic Research.
+
+\bibitem{newey1987}
+Newey, W. K., \& West, K. D. (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica, 55}(3), 703--708.
+
+\bibitem{patton2011}
+Patton, A. J. (2011). Volatility forecast comparison using imperfect volatility proxies. \emph{Journal of Econometrics, 160}(1), 246--256.
+
+\bibitem{andersen2007}
+Andersen, T. G., Bollerslev, T., \& Diebold, F. X. (2007). Roughing it up: Including jump components in the measurement, modeling, and forecasting of return volatility. \emph{Review of Economics and Statistics, 89}(4), 701--720.
+
+\bibitem{andersen2001}
+Andersen, T. G., Bollerslev, T., Diebold, F. X., \& Ebens, H. (2001). The distribution of realized stock return volatility. \emph{Journal of Financial Economics, 61}(1), 43--76.
+
+\bibitem{ang2002}
+Ang, A., \& Bekaert, G. (2002). Regime switches in interest rates. \emph{Journal of Business \& Economic Statistics, 20}(2), 163--182.
+
+\bibitem{antweiler2004}
+Antweiler, W., \& Frank, M. Z. (2004). Is all that talk just noise? The information content of internet stock message boards. \emph{Journal of Finance, 59}(3), 1259--1294.
+
+\bibitem{ardia2018}
+Ardia, D., Bluteau, K., Boudt, K., \& Catania, L. (2018). Forecasting risk with Markov-switching GARCH models: A large-scale performance study. \emph{International Journal of Forecasting, 34}(4), 733--747.
+
+\bibitem{audrino2020}
+Audrino, F., Sigrist, F., \& Ballinari, D. (2020). The impact of sentiment and attention measures on stock market volatility. \emph{International Journal of Forecasting, 36}(2), 334--357.
+
+\bibitem{baig2023}
+Baig, A. S., Blau, B. M., Butt, H. A., \& Yasin, A. (2023). Do retail traders destabilize financial markets? An investigation surrounding the COVID-19 pandemic. \emph{Journal of Banking \& Finance, 144}, 106627.
+
+\bibitem{barber2008}
+Barber, B. M., \& Odean, T. (2008). All that glitters: The effect of attention and news on the buying behavior of individual and institutional investors. \emph{Review of Financial Studies, 21}(2), 785--818.
+
+\bibitem{bodilsen2025}
+Bodilsen, S. T., \& Lunde, A. (2025). Exploiting news analytics for volatility forecasting. \emph{Journal of Applied Econometrics, 40}(1), 18--36.
+
+\bibitem{bollerslev1986}
+Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. \emph{Journal of Econometrics, 31}(3), 307--327.
+
+\bibitem{bollerslev2016}
+Bollerslev, T., Patton, A. J., \& Quaedvlieg, R. (2016). Exploiting the errors: A simple approach for improved volatility forecasting. \emph{Journal of Econometrics, 192}(1), 1--18.
+
+\bibitem{breiman1996}
+Breiman, L. (1996). Bagging predictors. \emph{Machine Learning, 24}(2), 123--140.
+
+\bibitem{carta2021}
+Carta, S., Ferreira, A., Podda, A. S., Recupero, D. R., \& Sanna, A. (2021). Multi-DQN: An ensemble of Deep Q-learning agents for stock market forecasting. \emph{Expert Systems with Applications, 164}, 113820.
+
+\bibitem{celik2022}
+\c{C}elik, T. B., \.{I}can, \"{O}., \& Bulut, E. (2022). Extending machine learning prediction capabilities by explainable AI in financial time series prediction. \emph{Applied Soft Computing, 132}, 109876.
+
+\bibitem{christensen2023}
+Christensen, K., Siggaard, M., \& Veliyev, B. (2023). A machine learning approach to volatility forecasting. \emph{Journal of Financial Econometrics, 21}(5), 1680--1727.
+
+\bibitem{corsi2009}
+Corsi, F. (2009). A simple approximate long-memory model of realized volatility. \emph{Journal of Financial Econometrics, 7}(2), 174--196.
+
+\bibitem{da2011}
+Da, Z., Engelberg, J., \& Gao, P. (2011). In search of attention. \emph{Journal of Finance, 66}(5), 1461--1499.
+
+\bibitem{ederington1993}
+Ederington, L. H., \& Lee, J. H. (1993). How markets process information: News releases and volatility. \emph{Journal of Finance, 48}(4), 1161--1191.
+
+\bibitem{engle1982}
+Engle, R. F. (1982). Autoregressive conditional heteroskedasticity with estimates of the variance of UK inflation. \emph{Econometrica, 50}(4), 987--1008.
+
+\bibitem{engle2008}
+Engle, R. F., \& Rangel, J. G. (2008). The spline-GARCH model for low-frequency volatility and its global macroeconomic causes. \emph{Review of Financial Studies, 21}(3), 1187--1222.
+
+\bibitem{glasserman2019}
+Glasserman, P., \& Mamaysky, H. (2019). Does unusual news forecast market stress? \emph{Journal of Financial and Quantitative Analysis, 54}(5), 1937--1974.
+
+\bibitem{hamilton1989}
+Hamilton, J. D. (1989). A new approach to the economic analysis of the business cycle. \emph{Econometrica, 57}(2), 357--384.
+
+\bibitem{hansen2005}
+Hansen, P. R., \& Lunde, A. (2005). A forecast comparison of volatility models: Does anything beat a GARCH(1,1)? \emph{Journal of Applied Econometrics, 20}(7), 873--889.
+
+\bibitem{he2023}
+He, K., Yang, Q., Ji, L., Pan, J., \& Zou, Y. (2023). Financial time series forecasting with the deep learning ensemble model. \emph{Mathematics, 11}(4), 1054.
+
+\bibitem{hoerl1970}
+Hoerl, A. E., \& Kennard, R. W. (1970). Ridge regression: Biased estimation for nonorthogonal problems. \emph{Technometrics, 12}(1), 55--67.
+
+\bibitem{huang2024}
+Huang, Y., Zhou, C., Cui, K., \& Lu, X. (2024). A multi-agent reinforcement learning framework for optimizing financial trading strategies based on TimesNet. \emph{Expert Systems with Applications, 237}, 121502.
+
+\bibitem{ke2017}
+Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., \ldots{} \& Liu, T.-Y. (2017). LightGBM: A highly efficient gradient boosting decision tree. \emph{Advances in Neural Information Processing Systems, 30}.
+
+\bibitem{loughran2011}
+Loughran, T., \& McDonald, B. (2011). When is a liability not a liability? Textual analysis, dictionaries, and 10-Ks. \emph{Journal of Finance, 66}(1), 35--65.
+
+\bibitem{ma2019}
+Ma, F., Lu, X., Yang, K., \& Zhang, Y. (2019). Volatility forecasting: Long memory, regime switching and heteroscedasticity. \emph{Applied Economics, 51}(38), 4151--4163.
+
+\bibitem{michankow2023}
+Micha\'{n}k\'{o}w, J., Kwiatkowski, \L., \& Morajda, J. (2023). Combining deep learning and GARCH models for financial volatility and risk forecasting. \emph{arXiv preprint arXiv:2310.01063}.
+
+\bibitem{patton2015}
+Patton, A. J., \& Sheppard, K. (2015). Good volatility, bad volatility: Signed jumps and the persistence of volatility. \emph{Review of Economics and Statistics, 97}(3), 683--697.
+
+\bibitem{ramos2019}
+Ramos-P\'{e}rez, E., Alonso-Gonz\'{a}lez, P. J., \& N\'{u}\~{n}ez-Vel\'{a}zquez, J. J. (2019). Forecasting volatility with a stacked model based on a hybridized Artificial Neural Network. \emph{Expert Systems with Applications, 129}, 1--9.
+
+\bibitem{selvaraj2025}
+Selvaraj, D. R., Sankaran, A., Kathiravan, V., et al. (2025). A hybrid stacked ensemble approach for stock market volatility prediction. \emph{2025 3rd International Conference on Intelligent Cyber Physical Systems and Internet of Things (ICoICI)}, 206--211. IEEE.
+
+\bibitem{tetlock2007}
+Tetlock, P. C. (2007). Giving content to investor sentiment: The role of media in the stock market. \emph{Journal of Finance, 62}(3), 1139--1168.
+
+\bibitem{vlastakis2012}
+Vlastakis, N., \& Markellos, R. N. (2012). Information demand and stock market volatility. \emph{Journal of Banking \& Finance, 36}(6), 1808--1821.
+
+\bibitem{wolpert1992}
+Wolpert, D. H. (1992). Stacked generalization. \emph{Neural Networks, 5}(2), 241--259.
+
+\end{thebibliography}
+
+\newpage
+\appendix
+
+\section{Complete Feature Budget}\label{app:features}
+
+Table~\ref{tab:full-feature-budget} lists all 47 end-of-day features used by both the modular RIVE system and the monolithic baselines. In RIVE, each feature is consumed by the module indicated in the ``Module'' column; the monolithic baselines (Elastic Net and LightGBM) receive all 47 features as a flat input vector. The Jaccard similarity between the two feature sets is 1.0, confirming a perfectly matched information budget.
+
+\begin{table}[H]
+\centering
+\caption{Complete feature budget (47 features). All features are available by end of day $t$ and are used to forecast $h_{t+1}$.}
+\label{tab:full-feature-budget}
+\small
+\begin{tabular}{rlll}
+\toprule
+\# & Feature & Description & Module \\
+\midrule
+\multicolumn{4}{l}{\textit{Technical (6 features)}} \\
+1 & rv\_lag\_1 & Realized vol, 1-day lag & Technical \\
+2 & rv\_lag\_5 & 5-day rolling mean realized vol, lagged & Technical \\
+3 & rv\_lag\_22 & 22-day rolling mean realized vol, lagged & Technical \\
+4 & returns\_sq\_lag\_1 & Squared daily return, 1-day lag & Technical \\
+5 & VIX\_close & Log VIX close (same day, available EOD) & Technical \\
+6 & rsi\_14 & 14-day RSI (same day, available EOD) & Technical \\
+\midrule
+\multicolumn{4}{l}{\textit{News (28 features)}} \\
+7 & news\_memory & Decay-weighted news count (lags 1--4) & News \\
+8 & shock\_memory & Decay-weighted shock indicator (lags 1--4) & News \\
+9 & sentiment\_memory & Decay-weighted sentiment (lags 1--4) & News \\
+10 & shock\_vix\_memory & shock\_memory $\times$ VIX / 20 & News \\
+11 & sentiment\_avg & Mean sentiment score & News \\
+12 & novelty\_score & Textual novelty score & News \\
+13 & shock\_index & Abnormal news volume indicator & News \\
+14 & news\_count & Number of recent news items & News \\
+15--34 & news\_pca\_0 \ldots\ news\_pca\_19 & PCA of TF--IDF representations (20 components) & News \\
+\midrule
+\multicolumn{4}{l}{\textit{Retail / Attention (7 features)}} \\
+35 & volume\_shock & Volume / 20-day MA(volume) & Retail \\
+36 & volume\_shock\_roll3 & 3-day rolling average of volume shock & Retail \\
+37 & hype\_signal & Synthetic retail-attention proxy & Retail \\
+38 & hype\_signal\_roll3 & 3-day rolling hype signal & Retail \\
+39 & hype\_signal\_roll7 & 7-day rolling hype signal & Retail \\
+40 & hype\_zscore & Z-score of volume shock & Retail \\
+41 & price\_acceleration & Second difference of log price & Retail \\
+\midrule
+\multicolumn{4}{l}{\textit{Calendar (3 features)}} \\
+42 & is\_monday & Monday indicator & Coordinator \\
+43 & is\_friday & Friday indicator & Coordinator \\
+44 & is\_q4 & Q4 indicator & Coordinator \\
+\midrule
+\multicolumn{4}{l}{\textit{Short-horizon volatility (3 features)}} \\
+45 & vol\_ma5 & 5-day rolling mean of $h_t$, lagged & Coordinator \\
+46 & vol\_ma10 & 10-day rolling mean of $h_t$, lagged & Coordinator \\
+47 & vol\_std5 & 5-day rolling std.\ dev.\ of $h_t$, lagged & Coordinator \\
+\bottomrule
+\end{tabular}
+\normalsize
+\end{table}
+
+All lagged features use at least a one-day shift to prevent look-ahead bias. End-of-day features (VIX close, RSI, volume shock) are computed from same-day data available at market close before the target day opens.
+
+\end{document}

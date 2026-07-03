@@ -1,28 +1,34 @@
-data:
-  end_date: '2024-12-31'
-  processed_path: data/processed
-  raw_path: data/raw
-  start_date: '2018-01-01'
-  tickers:
-  - AAPL
-  - MSFT
-  - NVDA
-  - JPM
-  - BAC
-  - V
-  - CAT
-  - GE
-  - BA
-  - WMT
-  - MCD
-  - COST
-  - XOM
-  - CVX
-  - SLB
-  - JNJ
-  - PFE
-  - UNH
-mlflow:
-  experiment_name: rive_universe_18
-project_name: rive
+project_name: rccv   # regime-calibrated conformal volatility (working codename)
 seed: 42
+
+data:
+  raw_path: data/raw
+  processed_path: data/processed_v2      # v2 panel; legacy RIVE parquets live in data/processed (untouched)
+  start_date: '2005-01-03'
+  end_date: '2025-12-31'
+  universe:
+    kind: crsp_top_marketcap_pit          # point-in-time, rebalanced annually
+    size: 100
+  rv:
+    source: wrds_taq                      # fallback: risklab (decision end of P1 week 3)
+    sampling_minutes: 5
+    subsample: true
+    estimators: [rv, bpv]                 # realized variance + bipower variation
+
+state_vars:
+  fred_series: [VIXCLS, DGS10, DGS3MO, BAA, AAA, BAMLH0A0HYM2]
+  percentile_window_days: 750
+
+evaluation:
+  burn_in_end: '2009-12-31'
+  online_eval_start: '2010-01-01'
+  alpha_two_sided: 0.10
+  alpha_one_sided: [0.01, 0.05]
+  refit_frequency: quarterly
+
+regimes:
+  estimator: online_hmm                   # ablation: quantile_bins
+  n_regimes: 3                            # ablation: 2..5
+
+mlflow:
+  experiment_name: rccv_panel

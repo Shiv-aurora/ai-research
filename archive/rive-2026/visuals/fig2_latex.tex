@@ -1,0 +1,19 @@
+% LaTeX code for Figure 2
+% Drop this into your paper where you want the figure to appear
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{visuals/output/fig2_attention_regimes.pdf}
+    \caption{%
+        Illustration of attention-driven regimes for a representative stock (AAPL).
+        The top panel shows daily closing prices, while the bottom panel displays
+        normalized trading volume (volume relative to 20-day moving average, standardized).
+        Shaded regions indicate periods classified as high-attention regimes
+        (volume/MA$_{20}$ $>$ 1.5). These periods coincide with pronounced
+        deviations from typical volatility dynamics and represent approximately
+        8.5\% of trading days during the sample period (2020--2024).
+    }
+    \label{fig:attention-regime}
+\end{figure}
+
+% Reference in text: See Figure~\ref{fig:attention-regime} for an illustration of attention-driven regimes.

@@ -1,27 +1,32 @@
-# RIVE Dependencies
-# Regime-Integrated Volatility Ensemble
+# Core
+numpy>=1.26
+pandas>=2.1
+pyarrow>=14.0
+scipy>=1.11
+scikit-learn>=1.4
+pyyaml>=6.0
 
-# Data Processing
-pandas
-numpy
+# Data access
+wrds>=3.2          # WRDS (TAQ, CRSP); requires WRDS account
+yfinance>=0.2      # OHLC breadth universe
+fredapi>=0.5       # FRED state variables
+requests>=2.31
 
-# Machine Learning
-scikit-learn
-lightgbm
-xgboost
+# Forecasters
+lightgbm>=4.3
+statsmodels>=0.14
+arch>=6.3          # GARCH-t / volatility baselines
+# Heavyweight forecaster deps (installed in Phase 2 when first needed):
+# torch>=2.2         # small GRU forecaster
+# chronos-forecasting>=1.2
+# timesfm
 
-# Experiment Tracking
-mlflow
+# Regimes
+hmmlearn>=0.3
 
-# Financial Data Sources
-yfinance
-polygon-api-client
+# Tracking & evaluation
+mlflow>=2.10
+matplotlib>=3.8
 
-# Configuration
-pyyaml
-
-# NLP / Embeddings
-sentence-transformers==2.7.0
-
-# Volatility Modeling
-arch
+# Dev
+pytest>=8.0

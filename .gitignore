@@ -1,5 +1,3 @@
-# RIVE .gitignore
-
 # Data directories (large files)
 data/
 
@@ -30,13 +28,21 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Working directories
-visuals/
-
-# Manuscript source (submitted separately)
-paper.tex
-final_report.tex
+# LaTeX build artifacts
+paper2/**/*.aux
+paper2/**/*.bbl
+paper2/**/*.blg
+paper2/**/*.fdb_latexmk
+paper2/**/*.fls
+paper2/**/*.log
+paper2/**/*.out
+paper2/**/*.synctex.gz
+paper2/main.pdf
 
 # Claude Code
 .claude/
-mlwa_paper.tex
+
+# Archived RIVE paper sources are force-added; keep ignoring stray copies elsewhere
+/paper.tex
+/final_report.tex
+/mlwa_paper.tex

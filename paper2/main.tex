@@ -1,0 +1,76 @@
+\documentclass[review]{elsarticle}
+
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+\biboptions{authoryear}
+
+\journal{the International Journal of Forecasting}
+
+\begin{document}
+
+\begin{frontmatter}
+
+% Working title — candidate 1 of the approved plan; final choice before submission.
+\title{Regime-Conditional Conformal Prediction for Realized Volatility Forecasting}
+
+\author[inst1]{Shivam Arora\corref{cor1}}
+\ead{sarora01@villanova.edu}
+\cortext[cor1]{Corresponding author.}
+
+\author[inst1]{Venkat Margapuri}
+\ead{venkatasivakumar.margapuri@villanova.edu}
+
+\affiliation[inst1]{
+  organization={Villanova University},
+  addressline={Department of Computing Sciences},  % TODO: confirm exact department name with author
+  city={Villanova},
+  state={PA},
+  country={United States}
+}
+
+\begin{abstract}
+% Drafted in Phase 6 after E1--E3 lock.
+\end{abstract}
+
+\begin{keyword}
+Conformal prediction \sep Realized volatility \sep Regime switching \sep Uncertainty quantification \sep Value-at-Risk \sep Online learning
+\end{keyword}
+
+\end{frontmatter}
+
+\section{Introduction}\label{sec:intro}
+% Figure 1 (E1 motivating exhibit) leads: marginal validity masks regime-conditional failure.
+
+\section{Related Work}\label{sec:related}
+% (i) volatility forecasting incl. TSFMs; (ii) online conformal (ACI, DtACI, SF-OGD, TCP);
+% (iii) group-conditional CP (Mondrian, POGO); (iv) conformal VaR. Explicit 4-point gap paragraph.
+
+\section{Method}\label{sec:method}
+% Three layers; algorithm box for soft-Mondrian update; panel shrinkage.
+
+\section{Theory}\label{sec:theory}
+% Propositions 1--3 + honesty remark on filtered vs latent regimes.
+
+\section{Data}\label{sec:data}
+% TAQ pipeline, point-in-time universe, Risk Lab cross-validation.
+
+\section{Empirical Results}\label{sec:results}
+
+\section{Application: Value-at-Risk}\label{sec:var}
+
+\section{Conclusion}\label{sec:conclusion}
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{refs}
+
+\end{document}
