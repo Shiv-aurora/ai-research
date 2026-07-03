@@ -7,13 +7,13 @@ data:
   start_date: '2005-01-03'
   end_date: '2025-12-31'
   universe:
-    kind: crsp_top_marketcap_pit          # point-in-time, rebalanced annually
+    kind: provisional_top100              # -> crsp_top_marketcap_pit once WRDS access lands
     size: 100
   rv:
-    source: wrds_taq                      # fallback: risklab (decision end of P1 week 3)
+    source: risklab                       # -> wrds_taq once WRDS access lands
+    estimator: log_rv5                    # 5-min trades RV (log daily variance); alt: log_rv (QMLE)
     sampling_minutes: 5
     subsample: true
-    estimators: [rv, bpv]                 # realized variance + bipower variation
 
 state_vars:
   # DBAA/DAAA = daily Moody's yields -> credit_spread. BAMLH0A0HYM2 (HY OAS) is
