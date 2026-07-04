@@ -1,0 +1,29 @@
+[1/6] per-stock ACI / DtACI / SF-OGD ...
+[4/7] HAR-QREG ...
+[5/7] KNN-state similarity conformal ...
+[6/7] rc_hand ...
+[7/7] rc_adaptive ...
+common sample: 318,892 stock-days
+
+=== E2 main table (alpha=0.10, common sample) ===
+             marginal  cov_calm  cov_normal  cov_elevated  cov_stress  cov_stress_upper   width  width_stress
+method                                                                                                       
+aci            0.8985    0.8964      0.9046        0.9142      0.8397            0.8912  1.7089        1.7978
+dtaci          0.8993    0.8967      0.9052        0.9132      0.8524            0.9041  1.7080        1.8658
+sfogd          0.8989    0.8972      0.9028        0.9136      0.8504            0.9036  1.7391        1.8782
+har_qreg       0.8907    0.8870      0.9023        0.9056      0.8206            0.8562  1.6513        1.7165
+knn_state      0.8936    0.8900      0.8985        0.9152      0.8405            0.8947  1.6618        1.8106
+rc_hand        0.8975    0.8987      0.8973        0.8982      0.8829            0.9378  1.6921        2.1720
+rc_adaptive    0.8990    0.8999      0.8991        0.9000      0.8829            0.9397  1.7208        2.2508
+
+=== MCS over daily interval scores ===
+             mean_loss  mcs_pvalue  in_mcs
+rc_hand         2.3224      0.5635    True
+har_qreg        2.3290      0.5635    True
+rc_adaptive     2.3310      0.5635    True
+dtaci           2.3323      0.5635    True
+knn_state       2.3336      0.5635    True
+aci             2.3390      0.0550   False
+sfogd           2.3640      0.0000   False
+
+saved -> reports/e2_full_summary.csv, reports/e2_full_mcs.csv
