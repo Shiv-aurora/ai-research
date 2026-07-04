@@ -3,6 +3,8 @@
 Methods (all two-sided at alpha=0.10, walk-forward, common sample):
   aci / dtaci / sfogd   per-stock marginal online conformal baselines
   har_qreg              per-stock quantile regression on HAR lags (direct)
+  knn_state             similarity-weighted conformal (continuous-state
+                        rival to discrete regimes; HopCPT/NexCP spirit)
   rc_hand               pooled regime-conditional, hand-tuned rates
   rc_adaptive           pooled regime-conditional, adaptive rates (ours)
 
@@ -25,6 +27,7 @@ from src.conformal.aci import run_aci
 from src.conformal.dtaci import run_dtaci
 from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.conformal.sfogd import run_sfogd
+from src.conformal.similarity import run_knn_state_conformal
 from src.eval.coverage import coverage_by_state, marginal_coverage
 from src.eval.mcs import interval_score, mcs
 from src.forecasters.quantile_baselines import har_qreg
@@ -106,11 +109,21 @@ def main() -> None:
         "sfogd": per_stock_bounds(preds, lambda s: run_sfogd(
             s, alpha=ALPHA, warmup=WARMUP)),
     }
-    print("[4/6] HAR-QREG ...")
+    print("[4/7] HAR-QREG ...")
     bounds["har_qreg"] = qreg_bounds(preds)
-    print("[5/6] rc_hand ...")
+    print("[5/7] KNN-state similarity conformal ...")
+    ms = panel.groupby("date")[["vix_pctl", "mkt_rv_pctl",
+                                "xs_dispersion"]].first().sort_index()
+    knn = run_knn_state_conformal(preds, ms, "pool", alpha=ALPHA,
+                                  k=250, warmup_days=WARMUP)
+    knn_b = knn[["ticker", "date", "target"]].copy()
+    knn_b["lo"] = knn["pool"] - knn["q_lo"] * knn["sigma_hat"]
+    knn_b["hi"] = knn["pool"] + knn["q_hi"] * knn["sigma_hat"]
+    knn_b["warm"] = knn["warmup"]
+    bounds["knn_state"] = knn_b
+    print("[6/7] rc_hand ...")
     bounds["rc_hand"] = panel_bounds(preds, member, eta_by_regime=ETAS_HAND)
-    print("[6/6] rc_adaptive ...")
+    print("[7/7] rc_adaptive ...")
     bounds["rc_adaptive"] = panel_bounds(preds, member, adaptive=True)
 
     # common evaluation sample: (ticker, date) present & non-warm everywhere
