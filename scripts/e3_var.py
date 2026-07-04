@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.data.ohlc import load_returns
 from src.forecasters.quantile_baselines import caviar_sav, garch_t_var
+from src.utils.parallel import pmap
 from src.data.universe import get_universe
 from src.eval.var_backtests import backtest_panel
 from src.utils.config import PROJECT_ROOT, load_config
@@ -57,6 +58,24 @@ def aligned_bins(market: pd.DataFrame) -> pd.DataFrame:
     pi[~ok] = 0.25
     return pd.DataFrame(pi, index=market.index,
                         columns=[f"regime_{j}" for j in range(4)])
+
+
+def _stock_streams(args):
+    """Worker: FHS/ACI/GARCH-t/CAViaR columns for one name (module-level
+    for spawn; the heavy GARCH and CAViaR fits parallelize across names)."""
+    g, alpha = args
+    g = g.copy()
+    if len(g) <= WARMUP_DAYS + 50:
+        return None
+    g["q_fhs"] = (g["z"].rolling(500, min_periods=250)
+                  .quantile(1 - alpha).shift(1))
+    g["q_aci"] = one_sided_aci_stream(g["z"].values, alpha, WARMUP_DAYS)
+    g["q_garch"] = garch_t_var(g["ret_next"].values, alpha,
+                               min_train=WARMUP_DAYS) / g["sigma_pred"].values
+    g["q_caviar"] = caviar_sav(g["ret_next"].values, alpha,
+                               min_train=WARMUP_DAYS) / g["sigma_pred"].values
+    g["warm"] = np.arange(len(g)) < WARMUP_DAYS
+    return g
 
 
 def one_sided_aci_stream(z: np.ndarray, alpha: float, warmup: int,
@@ -100,22 +119,10 @@ def main() -> None:
         base = df.merge(state, on=["ticker", "date"], how="left").copy()
         base["q_normal"] = stats.norm.ppf(1 - alpha)
 
-        # --- FHS + ACI per stock ---
-        parts = []
-        for _, g in base.sort_values("date").groupby("ticker"):
-            g = g.copy()
-            if len(g) <= WARMUP_DAYS + 50:
-                continue
-            g["q_fhs"] = (g["z"].rolling(500, min_periods=250)
-                          .quantile(1 - alpha).shift(1))
-            g["q_aci"] = one_sided_aci_stream(g["z"].values, alpha, WARMUP_DAYS)
-            # classical return-quantile models, converted to z units
-            g["q_garch"] = garch_t_var(g["ret_next"].values, alpha,
-                                       min_train=WARMUP_DAYS) / g["sigma_pred"].values
-            g["q_caviar"] = caviar_sav(g["ret_next"].values, alpha,
-                                       min_train=WARMUP_DAYS) / g["sigma_pred"].values
-            g["warm"] = np.arange(len(g)) < WARMUP_DAYS
-            parts.append(g)
+        # --- FHS/ACI/GARCH-t/CAViaR per stock, across cores ---
+        groups = [(g, alpha)
+                  for _, g in base.sort_values("date").groupby("ticker")]
+        parts = [p for p in pmap(_stock_streams, groups) if p is not None]
         base = pd.concat(parts)
 
         # --- ours: pooled regime-conditional one-sided on z ---

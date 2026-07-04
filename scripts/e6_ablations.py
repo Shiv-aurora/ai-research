@@ -11,6 +11,9 @@ forecast unless stated. Three axes:
   (c) forecaster: conformalizing HAR / LGBM / pool — the layer should
       deliver its guarantee regardless of the point model underneath.
 
+All independent runs execute across cores (pmap): 9 pooled configs in one
+pool, then the 100 single-stock calibrations in another.
+
 Usage: .venv/bin/python scripts/e6_ablations.py
 """
 
@@ -25,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.eval.coverage import coverage_by_state, marginal_coverage
 from src.utils.config import PROJECT_ROOT, load_config
+from src.utils.parallel import pmap
 from src.utils.seeding import seed_everything
 
 K_CUTS = {1: [], 2: [0.95], 3: [0.8, 0.95],
@@ -43,6 +47,21 @@ def bin_membership(market: pd.DataFrame, cuts: list[float]) -> pd.DataFrame:
                         columns=[f"regime_{j}" for j in range(K)])
 
 
+def _pooled_run(args):
+    """Worker: one pooled calibration config (module-level for spawn)."""
+    label, preds, member, fc, kw = args
+    res = run_panel_mondrian(preds, member, fc, alpha=0.10,
+                             adaptive=True, warmup_days=100, **kw)
+    return label, res
+
+
+def _single_stock_run(args):
+    """Worker: one name calibrated alone (the starvation arm)."""
+    g, member = args
+    return run_panel_mondrian(g, member, "pool", alpha=0.10, adaptive=True,
+                              eta_offset=0.0, offset_l2=0.0, warmup_days=100)
+
+
 def summarize(res: pd.DataFrame, state: pd.DataFrame, label: str) -> dict:
     res = res.merge(state, on=["ticker", "date"], how="left")
     by = coverage_by_state(res, "vix_pctl")
@@ -54,7 +73,7 @@ def summarize(res: pd.DataFrame, state: pd.DataFrame, label: str) -> dict:
            "width": d["width"].mean(),
            "width_stress": d.loc[d.vix_pctl > 0.95, "width"].mean()}
     print(pd.Series(row).drop("config").rename(label).round(4).to_string(),
-          "\n")
+          "\n", flush=True)
     return row
 
 
@@ -66,39 +85,30 @@ def main() -> None:
     preds = pd.read_parquet(proc / "e0_predictions.parquet")
     state = panel[["ticker", "date", "vix_pctl"]]
     market = panel.groupby("date")[["vix_pctl"]].first().sort_index()
+    member4 = bin_membership(market, K_CUTS[4])
 
+    jobs = [(f"K={K}", preds, bin_membership(market, cuts), "pool", {})
+            for K, cuts in K_CUTS.items()]
+    jobs.append(("pooled_no_offsets", preds, member4, "pool",
+                 dict(eta_offset=0.0, offset_l2=0.0)))
+    jobs += [(f"forecaster={fc}", preds.dropna(subset=[fc]), member4, fc, {})
+             for fc in ["har", "lgbm", "pool"]]
+
+    print(f"[pooled configs] {len(jobs)} runs across cores ...", flush=True)
     rows = []
+    for label, res in pmap(_pooled_run, jobs):
+        rows.append(summarize(res, state, label))
 
-    print("=== (a) K sweep (adaptive, pooled + offsets) ===")
-    for K, cuts in K_CUTS.items():
-        member = bin_membership(market, cuts)
-        res = run_panel_mondrian(preds, member, "pool", alpha=0.10,
-                                 adaptive=True, warmup_days=100)
-        rows.append(summarize(res, state, f"K={K}"))
-
-    print("=== (b) pooling variants (K=4, adaptive) ===")
-    member = bin_membership(market, K_CUTS[4])
-    res = run_panel_mondrian(preds, member, "pool", alpha=0.10, adaptive=True,
-                             eta_offset=0.0, offset_l2=0.0, warmup_days=100)
-    rows.append(summarize(res, state, "pooled_no_offsets"))
-
-    parts = []
-    for tkr, g in preds.groupby("ticker"):
-        r = run_panel_mondrian(g, member, "pool", alpha=0.10, adaptive=True,
-                               eta_offset=0.0, offset_l2=0.0, warmup_days=100)
-        parts.append(r)
+    print("[per-stock] 100 single-name calibrations across cores ...",
+          flush=True)
+    parts = pmap(_single_stock_run,
+                 [(g, member4) for _, g in preds.groupby("ticker")])
     rows.append(summarize(pd.concat(parts, ignore_index=True), state,
                           "per_stock"))
 
-    print("=== (c) forecaster underneath (K=4, adaptive, canonical) ===")
-    for fc in ["har", "lgbm", "pool"]:
-        res = run_panel_mondrian(preds.dropna(subset=[fc]), member, fc,
-                                 alpha=0.10, adaptive=True, warmup_days=100)
-        rows.append(summarize(res, state, f"forecaster={fc}"))
-
     out = pd.DataFrame(rows).set_index("config")
     out.to_csv(PROJECT_ROOT / "reports" / "e6_ablations.csv")
-    print(f"saved -> reports/e6_ablations.csv")
+    print(f"saved -> reports/e6_ablations.csv", flush=True)
 
 
 if __name__ == "__main__":

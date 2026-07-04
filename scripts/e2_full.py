@@ -32,6 +32,7 @@ from src.eval.coverage import coverage_by_state, marginal_coverage
 from src.eval.mcs import interval_score, mcs
 from src.forecasters.quantile_baselines import har_qreg
 from src.utils.config import PROJECT_ROOT, load_config
+from src.utils.parallel import pmap
 from src.utils.seeding import seed_everything
 
 ALPHA = 0.10
@@ -51,19 +52,33 @@ def aligned_bins(market: pd.DataFrame) -> pd.DataFrame:
                         columns=[f"regime_{j}" for j in range(4)])
 
 
-def per_stock_bounds(preds: pd.DataFrame, method_fn) -> pd.DataFrame:
-    """Run a per-stock stream on raw residuals; return raw-unit bounds."""
-    frames = []
-    for _, g in preds.sort_values("date").groupby("ticker"):
-        g = g.dropna(subset=["target", "pool"]).copy()
-        if len(g) <= WARMUP + 50:
-            continue
-        res = method_fn((g["target"] - g["pool"]).values)
-        g["lo"] = g["pool"].values - res["q_lo"].values
-        g["hi"] = g["pool"].values + res["q_hi"].values
-        g["warm"] = res["warmup"].values
-        frames.append(g[["ticker", "date", "target", "lo", "hi", "warm"]])
-    return pd.concat(frames, ignore_index=True)
+COLS = ["ticker", "date", "target", "lo", "hi", "warm"]
+
+
+def _stock_worker(args):
+    """Worker: one (method, name) per-stock stream in raw-unit bounds
+    (module-level for spawn; the 400 jobs parallelize across cores)."""
+    method, g = args
+    g = g.dropna(subset=["target", "pool"]).sort_values("date").copy()
+    if method == "har_qreg":
+        if len(g) <= 800:
+            return None
+        q = har_qreg(g["target"].values, [ALPHA / 2, 1 - ALPHA / 2],
+                     min_train=750)
+        g["lo"], g["hi"] = q[ALPHA / 2], q[1 - ALPHA / 2]
+        g["warm"] = np.isnan(g["lo"])
+        return method, g[COLS]
+    if len(g) <= WARMUP + 50:
+        return None
+    s = (g["target"] - g["pool"]).values
+    res = {"aci": lambda: run_aci(s, alpha=ALPHA, eta=0.05, warmup=WARMUP),
+           "dtaci": lambda: run_dtaci(s, alpha=ALPHA, warmup=WARMUP),
+           "sfogd": lambda: run_sfogd(s, alpha=ALPHA, warmup=WARMUP),
+           }[method]()
+    g["lo"] = g["pool"].values - res["q_lo"].values
+    g["hi"] = g["pool"].values + res["q_hi"].values
+    g["warm"] = res["warmup"].values
+    return method, g[COLS]
 
 
 def panel_bounds(preds, member, **kw) -> pd.DataFrame:
@@ -76,20 +91,6 @@ def panel_bounds(preds, member, **kw) -> pd.DataFrame:
     return out
 
 
-def qreg_bounds(preds: pd.DataFrame) -> pd.DataFrame:
-    frames = []
-    for _, g in preds.sort_values("date").groupby("ticker"):
-        g = g.dropna(subset=["target"]).copy()
-        if len(g) <= 800:
-            continue
-        q = har_qreg(g["target"].values, [ALPHA / 2, 1 - ALPHA / 2],
-                     min_train=750)
-        g["lo"], g["hi"] = q[ALPHA / 2], q[1 - ALPHA / 2]
-        g["warm"] = np.isnan(g["lo"])
-        frames.append(g[["ticker", "date", "target", "lo", "hi", "warm"]])
-    return pd.concat(frames, ignore_index=True)
-
-
 def main() -> None:
     cfg = load_config()
     seed_everything(cfg["seed"])
@@ -100,18 +101,15 @@ def main() -> None:
     market = panel.groupby("date")[["vix_pctl"]].first().sort_index()
     member = aligned_bins(market)
 
-    print("[1/6] per-stock ACI / DtACI / SF-OGD ...")
-    bounds = {
-        "aci": per_stock_bounds(preds, lambda s: run_aci(
-            s, alpha=ALPHA, eta=0.05, warmup=WARMUP)),
-        "dtaci": per_stock_bounds(preds, lambda s: run_dtaci(
-            s, alpha=ALPHA, warmup=WARMUP)),
-        "sfogd": per_stock_bounds(preds, lambda s: run_sfogd(
-            s, alpha=ALPHA, warmup=WARMUP)),
-    }
-    print("[4/7] HAR-QREG ...")
-    bounds["har_qreg"] = qreg_bounds(preds)
-    print("[5/7] KNN-state similarity conformal ...")
+    print("[1/3] per-stock ACI / DtACI / SF-OGD / HAR-QREG across cores ...")
+    jobs = [(m, g) for m in ["aci", "dtaci", "sfogd", "har_qreg"]
+            for _, g in preds.groupby("ticker")]
+    bounds: dict[str, list | pd.DataFrame] = {}
+    for r in pmap(_stock_worker, jobs):
+        if r is not None:
+            bounds.setdefault(r[0], []).append(r[1])
+    bounds = {m: pd.concat(fs, ignore_index=True) for m, fs in bounds.items()}
+    print("[2/3] KNN-state similarity conformal ...")
     ms = panel.groupby("date")[["vix_pctl", "mkt_rv_pctl",
                                 "xs_dispersion"]].first().sort_index()
     knn = run_knn_state_conformal(preds, ms, "pool", alpha=ALPHA,
@@ -121,9 +119,8 @@ def main() -> None:
     knn_b["hi"] = knn["pool"] + knn["q_hi"] * knn["sigma_hat"]
     knn_b["warm"] = knn["warmup"]
     bounds["knn_state"] = knn_b
-    print("[6/7] rc_hand ...")
+    print("[3/3] rc_hand + rc_adaptive ...")
     bounds["rc_hand"] = panel_bounds(preds, member, eta_by_regime=ETAS_HAND)
-    print("[7/7] rc_adaptive ...")
     bounds["rc_adaptive"] = panel_bounds(preds, member, adaptive=True)
 
     # common evaluation sample: (ticker, date) present & non-warm everywhere
