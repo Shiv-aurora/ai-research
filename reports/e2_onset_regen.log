@@ -1,0 +1,37 @@
+acute (VIX9D>VIX) share of days since 2012: 0.250
+
+=== rc_no_onset: marginal=0.8998 width=1.7043 ===
+           coverage  upper_coverage       n
+state_bin                                  
+calm         0.8997          0.9490  181010
+normal       0.8999          0.9486   84003
+elevated     0.9077          0.9548   46928
+stress       0.8755          0.9364   14727
+days-since-entry profile:
+        mean  size
+dse               
+1     0.8892  2951
+2     0.7372  1366
+3     0.8947   874
+4-5   0.8835  1742
+6-10  0.8423  3119
+>10   0.9230  4675
+
+=== rc_onset: marginal=0.9002 width=1.7301 ===
+           coverage  upper_coverage       n
+state_bin                                  
+calm         0.8999          0.9491  181010
+normal       0.9004          0.9476   84003
+elevated     0.9060          0.9549   46928
+stress       0.8846          0.9477   14727
+days-since-entry profile:
+        mean  size
+dse               
+1     0.8966  2951
+2     0.7225  1366
+3     0.8867   874
+4-5   0.8823  1742
+6-10  0.8564  3119
+>10   0.9437  4675
+
+saved -> reports/e2onset_*_dse.csv

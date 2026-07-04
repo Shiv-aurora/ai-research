@@ -1,0 +1,10 @@
+2011 US downgrade    n= 6,175  aci 0.869/0.927  ours 0.889/0.939   (cov/upper, target .90/.95)
+2015 CNY deval       n= 3,136  aci 0.887/0.920  ours 0.878/0.922   (cov/upper, target .90/.95)
+2018 Volmageddon     n= 1,734  aci 0.851/0.884  ours 0.860/0.915   (cov/upper, target .90/.95)
+2018 Q4 selloff      n= 1,900  aci 0.909/0.925  ours 0.942/0.966   (cov/upper, target .90/.95)
+2020 COVID           n= 5,200  aci 0.801/0.859  ours 0.886/0.951   (cov/upper, target .90/.95)
+2022 bear market     n=20,590  aci 0.916/0.953  ours 0.899/0.946   (cov/upper, target .90/.95)
+2024 yen unwind      n= 2,182  aci 0.865/0.940  ours 0.874/0.957   (cov/upper, target .90/.95)
+2025 tariff shock    n= 2,095  aci 0.744/0.876  ours 0.815/0.909   (cov/upper, target .90/.95)
+
+saved -> reports/e9_stress_windows.csv

@@ -1,0 +1,37 @@
+TSFM eval rows: 391,381
+
+[a] point-forecast sanity (QLIKE):
+  q50   0.2041
+  har   0.1922
+  pool  0.1916
+
+[b] RAW Chronos 80% band coverage (target 0.80):
+            mean      size
+vix_pctl                  
+calm      0.7678  227829.0
+normal    0.7899   99173.0
+elevated  0.8139   49648.0
+stress    0.7969   14731.0
+marginal  0.7803  391381.0
+
+[b'] directional miss rates (nominal 10/10):
+          exceed_up  exceed_dn
+vix_pctl                      
+calm          10.84      12.38
+normal        11.11       9.90
+elevated      11.28       7.33
+stress        14.63       5.68
+marginal      11.11      10.86
+
+[c] regime-conditional conformal repair (coverage target 0.80):
+            mean      size
+vix_pctl                  
+calm      0.7976  220961.0
+normal    0.7977   97145.0
+elevated  0.7982   49276.0
+stress    0.7989   14731.0
+marginal  0.7977  382113.0
+
+mean band expansion (fraction of model halfwidth): calm +0.071, stress +0.098
+
+saved -> reports/e4_tsfm_*.csv

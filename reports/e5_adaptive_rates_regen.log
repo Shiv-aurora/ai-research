@@ -1,0 +1,38 @@
+=== (a) two-sided, alpha=0.10, aligned K=4 bins ===
+marginal            0.896301
+width               1.675456
+width_stress        2.169845
+cov_stress_upper    0.937666
+cov_calm            0.896963
+cov_normal          0.896272
+cov_elevated        0.897415
+cov_stress          0.883004
+marginal             0.89906
+width               1.711683
+width_stress        2.248523
+cov_stress_upper    0.939295
+cov_calm            0.899906
+cov_normal          0.899645
+cov_elevated        0.899081
+cov_stress            0.8828
+  adaptive effective eta_hi (late-sample mean): calm=0.0084  normal=0.0076  elevated=0.0057  stress=0.0092
+
+=== (b) one-sided VaR, alpha=0.05 ===
+rate           0.051506
+rate_calm      0.051071
+rate_stress    0.056306
+rate           0.050109
+rate_calm      0.049962
+rate_stress    0.057052
+  adaptive effective eta_hi (late-sample mean): calm=0.0081  normal=0.0060  elevated=0.0056  stress=0.0169
+
+=== (b) one-sided VaR, alpha=0.01 ===
+rate            0.01191
+rate_calm      0.011374
+rate_stress    0.017095
+rate           0.010754
+rate_calm      0.010171
+rate_stress    0.018588
+  adaptive effective eta_hi (late-sample mean): calm=0.0145  normal=0.0113  elevated=0.0117  stress=0.0204
+
+saved -> /Users/shivamarora/Documents/research-final/reports/e5_adaptive_rates.csv
