@@ -57,6 +57,64 @@ def test_pooled_panel_repairs_rare_regime():
     assert abs(cov_calm - 0.90) < 0.015
 
 
+def test_adaptive_single_rate_reduces_to_fixed():
+    """Hard membership + one-expert grid must reproduce the fixed path
+    exactly: weights are trivial and own-threshold miss == issued miss."""
+    df, member, _ = make_panel_stream(n_days=1200, n_stocks=8, seed=2)
+    fixed = run_panel_mondrian(df, member, "m", alpha=0.10,
+                               eta_by_regime=0.01, warmup_days=150)
+    adapt = run_panel_mondrian(df, member, "m", alpha=0.10,
+                               adaptive=True, eta_grid=(0.01,),
+                               eta_corr=0.0, warmup_days=150)
+    np.testing.assert_allclose(adapt["q_hi"].values, fixed["q_hi"].values,
+                               atol=1e-12)
+    np.testing.assert_allclose(adapt["q_lo"].values, fixed["q_lo"].values,
+                               atol=1e-12)
+    assert (adapt["covered"].values == fixed["covered"].values).all()
+
+
+def test_adaptive_grid_matches_handtuned_coverage():
+    """The full grid, with no tuning, should recover the coverage that the
+    hand-tuned rates achieve on the regime-switching panel."""
+    df, member, state = make_panel_stream()
+    res = run_panel_mondrian(df, member, "m", alpha=0.10, adaptive=True,
+                             warmup_days=150)
+    res["state"] = res["date"].map(pd.Series(state, index=member.index))
+    d = res[~res.warmup]
+    assert abs(d["covered"].mean() - 0.90) < 0.02
+    assert abs(d.loc[d.state == 1, "covered"].mean() - 0.90) < 0.03
+    assert abs(d.loc[d.state == 0, "covered"].mean() - 0.90) < 0.02
+    # diagnostics present and sane
+    diag = res.attrs["adaptive"]
+    eff = np.asarray(diag["eff_eta_hi"])
+    assert np.isfinite(eff).all()
+    assert (eff >= min(diag["eta_grid"]) - 1e-12).all()
+    assert (eff <= max(diag["eta_grid"]) + 1e-12).all()
+
+
+def test_adaptive_one_sided_extreme_quantile():
+    """One-sided 1% head: the aggregator must climb into the fat tail
+    without hand-set large steps (the E3 lesson, learned online)."""
+    rng = np.random.default_rng(7)
+    n_days, n_stocks = 2500, 20
+    dates = pd.bdate_range("2013-01-01", periods=n_days)
+    rows = []
+    for i in range(n_stocks):
+        rows.append(pd.DataFrame({
+            "ticker": f"S{i:02d}", "date": dates,
+            "target": rng.standard_t(4, n_days), "m": np.zeros(n_days),
+        }))
+    df = pd.concat(rows, ignore_index=True)
+    df["z"] = df["target"]
+    member = pd.DataFrame(np.ones((n_days, 1)), index=dates,
+                          columns=["regime_0"])
+    res = run_panel_mondrian(df, member, "m", alpha=0.01, adaptive=True,
+                             warmup_days=250, one_sided=True, score_col="z")
+    d = res[~res.warmup]
+    exceed = 1.0 - d["covered_hi"].mean()
+    assert abs(exceed - 0.01) < 0.004
+
+
 def test_offsets_absorb_stock_heterogeneity():
     """A stock whose scale estimate is systematically wrong (misscaled
     forecasts) should still get near-target coverage via its offset."""
