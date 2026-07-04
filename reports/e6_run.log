@@ -1,0 +1,73 @@
+[pooled configs] 9 runs across cores ...
+marginal             0.90005
+cov_calm            0.899965
+cov_stress          0.879337
+cov_stress_upper    0.941061
+width               1.714228
+width_stress        2.197748 
+
+marginal            0.899292
+cov_calm            0.899818
+cov_stress            0.8828
+cov_stress_upper    0.939295
+width               1.708481
+width_stress        2.245369 
+
+marginal            0.899166
+cov_calm            0.899381
+cov_stress          0.883004
+cov_stress_upper    0.939431
+width               1.709082
+width_stress        2.248393 
+
+marginal             0.89906
+cov_calm            0.899906
+cov_stress            0.8828
+cov_stress_upper    0.939295
+width               1.711683
+width_stress        2.248523 
+
+marginal             0.89887
+cov_calm            0.899588
+cov_stress          0.882868
+cov_stress_upper    0.939363
+width               1.711823
+width_stress        2.248367 
+
+marginal            0.899076
+cov_calm            0.899915
+cov_stress          0.883004
+cov_stress_upper    0.939567
+width               1.712073
+width_stress        2.245117 
+
+marginal            0.899193
+cov_calm            0.899956
+cov_stress          0.884905
+cov_stress_upper    0.939227
+width               1.712809
+width_stress        2.243864 
+
+marginal            0.899164
+cov_calm            0.899906
+cov_stress          0.883344
+cov_stress_upper    0.941943
+width               1.707014
+width_stress        2.215067 
+
+marginal             0.89906
+cov_calm            0.899906
+cov_stress            0.8828
+cov_stress_upper    0.939295
+width               1.711683
+width_stress        2.248523 
+
+[per-stock] 100 single-name calibrations across cores ...
+marginal            0.879516
+cov_calm            0.883429
+cov_stress           0.80239
+cov_stress_upper    0.860043
+width               1.587115
+width_stress        1.654789 
+
+saved -> reports/e6_ablations.csv
