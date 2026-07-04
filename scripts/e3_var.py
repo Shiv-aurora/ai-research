@@ -7,8 +7,14 @@ estimate of the (1-p) quantile of z. Methods differ only in how q_t is set:
 
   normal       q = z_{1-p} (Gaussian)                      [parametric]
   fhs          q = trailing 500d empirical quantile of z    [filtered hist. sim.]
+  garch_t      per-stock GARCH(1,1)-t VaR on raw returns    [classical benchmark]
+  caviar       Engle-Manganelli SAV CAViaR on raw returns   [classical benchmark]
   aci          per-stock one-sided conformal tracking       [marginal adaptive]
   rc_panel     pooled regime-conditional one-sided (ours)   [this paper]
+  rc_adaptive  same, DtACI-per-regime adaptive rates        [this paper, no tuning]
+
+garch_t/caviar forecast return quantiles directly; their VaR is converted to
+z units (divide by sigma_pred) so all methods share the exceedance test.
 
 Evaluation: pooled exceedance rates overall and by VIX regime; share of
 stocks passing Kupiec, Christoffersen, and DQ at 5% significance.
@@ -27,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.data.ohlc import load_returns
+from src.forecasters.quantile_baselines import caviar_sav, garch_t_var
 from src.data.universe import get_universe
 from src.eval.var_backtests import backtest_panel
 from src.utils.config import PROJECT_ROOT, load_config
@@ -102,6 +109,11 @@ def main() -> None:
             g["q_fhs"] = (g["z"].rolling(500, min_periods=250)
                           .quantile(1 - alpha).shift(1))
             g["q_aci"] = one_sided_aci_stream(g["z"].values, alpha, WARMUP_DAYS)
+            # classical return-quantile models, converted to z units
+            g["q_garch"] = garch_t_var(g["ret_next"].values, alpha,
+                                       min_train=WARMUP_DAYS) / g["sigma_pred"].values
+            g["q_caviar"] = caviar_sav(g["ret_next"].values, alpha,
+                                       min_train=WARMUP_DAYS) / g["sigma_pred"].values
             g["warm"] = np.arange(len(g)) < WARMUP_DAYS
             parts.append(g)
         base = pd.concat(parts)
@@ -115,13 +127,23 @@ def main() -> None:
         base = base.merge(rc[["ticker", "date", "q_rc"]],
                           on=["ticker", "date"], how="left")
 
-        d = base[(~base["warm"]) & base["q_fhs"].notna() & base["q_rc"].notna()]
+        rca = run_panel_mondrian(base, member, "pool", alpha=alpha,
+                                 adaptive=True, warmup_days=WARMUP_DAYS,
+                                 one_sided=True, score_col="z")
+        rca = rca.rename(columns={"q_hi": "q_rca"})
+        base = base.merge(rca[["ticker", "date", "q_rca"]],
+                          on=["ticker", "date"], how="left")
+
+        d = base[(~base["warm"]) & base["q_fhs"].notna() & base["q_rc"].notna()
+                 & base["q_garch"].notna() & base["q_caviar"].notna()]
         print(f"\n=== VaR {int((1-alpha)*100)}% (n={len(d):,}) ===")
         header = f"{'method':<10} {'rate':>7} {'calm':>7} {'stress':>7} " \
                  f"{'kupiec%':>8} {'christ%':>8} {'dq%':>6}"
         print(header)
         for m, qcol in [("normal", "q_normal"), ("fhs", "q_fhs"),
-                        ("aci", "q_aci"), ("rc_panel", "q_rc")]:
+                        ("garch_t", "q_garch"), ("caviar", "q_caviar"),
+                        ("aci", "q_aci"), ("rc_panel", "q_rc"),
+                        ("rc_adaptive", "q_rca")]:
             e = d["z"] > d[qcol]
             calm = e[d.vix_pctl <= 0.5].mean()
             stress = e[d.vix_pctl > 0.95].mean()
