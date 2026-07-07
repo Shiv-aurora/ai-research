@@ -46,9 +46,10 @@ def main() -> None:
     names = [s for s, _ in STEPS]
     start = names.index(args.start) if args.start else 0
 
+    (ROOT / "reports" / "logs").mkdir(parents=True, exist_ok=True)
     for name, artifacts in STEPS[start:]:
         t0 = time.time()
-        log = ROOT / "reports" / f"{name}_run.log"
+        log = ROOT / "reports" / "logs" / f"{name}_run.log"
         print(f"[{name}] running (log: {log.relative_to(ROOT)}) ...",
               flush=True)
         with open(log, "w") as fh:
