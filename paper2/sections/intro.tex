@@ -1,0 +1,97 @@
+\section{Introduction}\label{sec:intro}
+
+A volatility forecast is rarely consumed as a point estimate. Position
+limits, margin requirements, and Value-at-Risk (VaR) all depend on an
+uncertainty statement attached to the forecast: an interval, a quantile, a
+band the user is told to trust at a stated level. Online conformal methods
+\citep{gibbs2021adaptive, zaffran2022adaptive, bhatnagar2023improved} have
+made such statements available for any forecasting model, with
+distribution-free guarantees that hold under distribution shift. Those
+guarantees, however, are \emph{marginal}: correct on average over time.
+
+This paper documents, at scale, that marginal validity conceals a
+systematic conditional failure precisely where uncertainty statements
+matter most. On a survivorship-bias-free panel of the 100 largest US
+stocks over 2005--2025 (519{,}843 stock-days), adaptive conformal intervals
+for next-day realized volatility achieve their promised 90\% coverage
+almost exactly --- and cover only 82.9\% of stress-regime days, while
+over-covering calm ones (Figure~\ref{fig:coverage}). The upper tail, the
+direction that maps to risk-management losses, covers 90.1\% in stress when
+95\% is promised. Validity on average is purchased by failing during
+crises: the 2020 COVID crash (78.6\% coverage), the 2025 tariff shock
+(76.5\%), and every other major volatility episode in two decades. The
+same disease afflicts a zero-shot time-series foundation model: the native
+prediction band of Chronos \citep{ansari2024chronos} is not merely too
+narrow in stress but points the wrong way, missing on the upside 14.6\% of
+the time against a 10\% budget while missing only 5.7\% on the downside.
+
+We then show that most of this conditional deficit can be removed --- and
+we are precise about the part that cannot. Our calibration layer wraps any
+point forecaster and combines three ingredients, each of which we isolate
+in ablations. First, \emph{cross-sectional pooling}: per-regime conformal
+thresholds are updated by every stock in the panel, so a rare regime
+accrues calibration signal at the panel rate rather than the single-stock
+rate ($\sim$100$\times$ more updates). Second, \emph{regime conditioning}:
+thresholds are maintained per market regime, estimated online from public
+state variables, with soft memberships handled natively. Third,
+\emph{self-tuning adaptation}: per-regime learning rates are selected
+online by an expert-aggregation scheme with an issued-interval corrector,
+leaving no tuned parameter anywhere in the layer. The result on the same
+panel: stress coverage rises from 82.9\% to 88.3\% with other regimes flat
+at nominal, average interval score statistically indistinguishable from
+the best baselines (Model Confidence Set), and stress-day 99\% VaR breach
+rates of 1.8\% against 3.1--6.7\% for GARCH-$t$, CAViaR, filtered
+historical simulation, and adaptive conformal baselines. The identical
+layer flattens the Chronos band to within 0.2 percentage points of nominal
+in every regime.
+
+The deficit that remains is as informative as the repair. Coverage on the
+\emph{second day} after a spike enters the stress regime stays near
+72--76\% under every conditioning scheme we tried --- finer regime
+partitions, freshness subgroups, forward-looking option-implied signals
+(VIX9D), and even a deliberately leaky ``oracle'' calibrator given
+full-sample smoothed regime memberships
+(Figure~\ref{fig:dse}). Day-2 under-coverage is not a regime-detection
+failure; it is a shift in the score distribution faster than any
+bounded-step tracker can follow, and option prices do not anticipate it
+either. We report this as an honest boundary of the approach, with a
+finite-sample explanation.
+
+Three framing points delimit the contribution. Point-forecast accuracy is
+held fixed by design: our forecaster pool ties standard HAR and gradient
+boosting benchmarks (Table~\ref{tab:e0}), and no accuracy claim is made
+--- the contribution is that the \emph{uncertainty statements} attached to
+standard forecasts become conditionally trustworthy. The guarantees we
+prove are deterministic, hold under arbitrary cross-sectional and serial
+dependence, and condition on the calibrator's own filtered regime estimate
+--- the object a risk desk can actually compute --- with the gap to latent
+truth quantified empirically at 0.3 percentage points. And the evaluation
+is designed against survivorship: the universe is rebuilt each January
+from CRSP point-in-time market capitalizations, so Lehman Brothers,
+Wachovia, and Washington Mutual are in the panel through their deaths.
+
+\subsection*{Contributions}
+\begin{enumerate}
+\item \textbf{The phenomenon.} The first large-scale documentation that
+  marginally valid online conformal intervals for volatility are
+  systematically conditionally invalid, with the failure concentrated in
+  stress regimes and in the direction risk management cares about
+  (Section~\ref{sec:results}).
+\item \textbf{The method.} A regime-conditional, panel-pooled, self-tuning
+  online conformal layer with finite-sample per-regime coverage guarantees
+  that hold for arbitrary dependence, plus a one-sided head that maps to
+  VaR (Sections~\ref{sec:method}--\ref{sec:theory}).
+\item \textbf{The decomposition.} Ablations attributing the repair to its
+  parts: pooling contributes most of the average stress coverage; regime
+  conditioning contributes transition coverage, conditional VaR balance,
+  and the per-regime guarantee itself; adaptivity removes all tuning
+  (Section~\ref{sec:ablations}).
+\item \textbf{Foundation-model repair.} Evidence that a zero-shot TSFM's
+  native uncertainty is directionally miscalibrated in crises, and that
+  the same layer repairs it --- timely, given that current TSFM
+  evaluations in volatility forecasting consider point accuracy only
+  \citep{brini2026forecasting}.
+\item \textbf{An honest limit.} The day-2 onset window resists every
+  conditioning scheme, including oracle regimes and option-implied
+  signals; we characterize why (Section~\ref{sec:onset}).
+\end{enumerate}

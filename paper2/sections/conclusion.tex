@@ -1,0 +1,45 @@
+\section{Limitations and conclusion}\label{sec:conclusion}
+
+\paragraph{Limitations.} Four are material. First, the residual: our
+method removes most of the conditional coverage deficit, not all of it ---
+88.3\% against 90\% nominal in stress, with the shortfall concentrated in
+the onset window of Section~\ref{sec:onset}, and 99\% VaR stress breaches
+of 1.8\% against 1\%. We consider stating this plainly preferable to
+tuning until a table reads 90.0 on a slice chosen after the fact. Second,
+scope: one market (US large-cap equities), one target (daily realized
+volatility); the mechanism --- rare-regime starvation repaired by
+cross-sectional pooling --- should transfer to any panel of related
+series, but we have not shown it. Third, the guarantees control realized
+frequencies in regime-weighted time, conditional on the estimated
+memberships; they are not day-level conditional probability statements,
+which are unattainable without distributional assumptions
+\citep{foygelbarber2021limits}, and the oracle ablation bounds --- but
+does not eliminate --- the gap to latent-truth conditioning. Fourth,
+although the point-in-time universe removes survivorship in stock
+selection, the realized-volatility source begins in 2003 and large-cap
+liquid names are the easiest case for high-frequency measurement; broader
+cross-sections deserve a dedicated study.
+
+\paragraph{Conclusion.} Uncertainty statements attached to volatility
+forecasts are consumed conditionally --- on the bad days --- and this
+paper shows that the standard way of producing them is valid only on
+average: online conformal intervals promised at 90\% deliver 83\% in
+stress regimes, across 21 years, two hundred companies, and every major
+crisis of the sample, with foundation-model uncertainty failing in the
+same direction. A calibration layer that pools the cross-section within
+online-estimated regimes and tunes itself removes most of that deficit at
+no cost in average interval score, carries finite-sample per-regime
+guarantees robust to arbitrary dependence, and maps directly to VaR,
+where it outperforms the classical models on every stress backtest. What
+it cannot do --- cover the second day of a volatility spike --- survives
+oracle regime knowledge and option-implied signals, and we leave it as a
+precisely posed open problem. The practical reading for forecasters is
+simple: report coverage conditionally, expect marginal guarantees to hide
+exactly the failures that matter, and pool calibration information across
+the cross-section when rare states are the concern.
+
+\paragraph{Reproducibility.} All results regenerate from a single driver
+script with fixed seeds; data sources are public or standard academic
+subscriptions (CRSP via WRDS; Risk Lab realized volatilities; FRED/CBOE
+state variables), with every data query logged. Code and full replication
+instructions accompany the submission.

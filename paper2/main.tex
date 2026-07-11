@@ -11,6 +11,7 @@
 
 \newtheorem{proposition}{Proposition}
 \newtheorem{remark}{Remark}
+\newtheorem{assumption}{Assumption}
 
 \biboptions{authoryear}
 
@@ -39,8 +40,46 @@
 }
 
 \begin{abstract}
-% Drafted in Phase 6 after E1--E3 lock.
+Uncertainty statements attached to volatility forecasts are consumed
+conditionally --- on the bad days --- yet the methods that produce them
+are validated on average. On a survivorship-bias-free panel of the 100
+largest US stocks (2005--2025; 519{,}843 stock-days; point-in-time CRSP
+universe), we show that online conformal prediction intervals for
+next-day realized volatility are marginally valid but conditionally
+broken: intervals promised at 90\% cover 83\% of stress-regime days and
+over-cover calm ones, with the shortfall concentrated in the upper tail
+that risk management consumes; a zero-shot time-series foundation model
+(Chronos) exhibits the same failure directionally. We introduce a
+regime-conditional calibration layer that wraps any forecaster: conformal
+thresholds are maintained per market regime, estimated online; the
+calibration signal is pooled across the cross-section, giving rare
+regimes two orders of magnitude more updates than any single series
+provides; and per-regime learning rates are set by online expert
+aggregation with an issued-interval corrector, leaving no tuned
+parameters. The layer removes most of the conditional deficit (stress
+coverage 88.3\%) at no cost in average interval score (Model Confidence
+Set), delivers the best stress-day Value-at-Risk backtests among seven
+methods including GARCH-$t$ and CAViaR, repairs the foundation model's
+bands, and carries finite-sample per-regime coverage guarantees valid
+under arbitrary cross-sectional and serial dependence. One deficit
+survives everything we tried, including option-implied signals and an
+oracle given full-sample regime knowledge: coverage on the second day of
+a volatility spike. We characterize this onset window as an open problem
+for any backward-looking calibration scheme.
 \end{abstract}
+
+\begin{highlights}
+\item Marginally valid conformal volatility intervals cover 83\% of
+  stress days when 90\% is promised, across 21 years and 200+ stocks.
+\item A regime-conditional, cross-sectionally pooled, self-tuning
+  conformal layer removes most of the deficit at no average cost.
+\item Finite-sample per-regime coverage guarantees hold under arbitrary
+  serial and cross-sectional dependence.
+\item The layer yields the best stress-day VaR backtests among seven
+  methods and repairs a foundation model's miscalibrated bands.
+\item Day-2-of-spike coverage resists all conditioning, including oracle
+  regimes and option-implied signals --- an honest, quantified limit.
+\end{highlights}
 
 \begin{keyword}
 Conformal prediction \sep Realized volatility \sep Regime switching \sep Uncertainty quantification \sep Value-at-Risk \sep Online learning
@@ -48,27 +87,15 @@ Conformal prediction \sep Realized volatility \sep Regime switching \sep Uncerta
 
 \end{frontmatter}
 
-\section{Introduction}\label{sec:intro}
-% Figure 1 (E1 motivating exhibit) leads: marginal validity masks regime-conditional failure.
-
-\section{Related Work}\label{sec:related}
-% (i) volatility forecasting incl. TSFMs; (ii) online conformal (ACI, DtACI, SF-OGD, TCP);
-% (iii) group-conditional CP (Mondrian, POGO); (iv) conformal VaR. Explicit 4-point gap paragraph.
-
-\section{Method}\label{sec:method}
-% Three layers; algorithm box for soft-Mondrian update; panel shrinkage.
-
-\section{Theory}\label{sec:theory}
-% Propositions 1--3 + honesty remark on filtered vs latent regimes.
-
-\section{Data}\label{sec:data}
-% TAQ pipeline, point-in-time universe, Risk Lab cross-validation.
-
-\section{Empirical Results}\label{sec:results}
-
-\section{Application: Value-at-Risk}\label{sec:var}
-
-\section{Conclusion}\label{sec:conclusion}
+\input{sections/intro}
+\input{sections/related}
+\input{sections/method}
+\input{sections/theory}
+\input{sections/data}
+\input{sections/results}
+\input{sections/ablations}
+\input{sections/onset}
+\input{sections/conclusion}
 
 \bibliographystyle{elsarticle-harv}
 \bibliography{refs}

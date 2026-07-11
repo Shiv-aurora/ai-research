@@ -1,0 +1,93 @@
+\section{Method}\label{sec:method}
+
+The system has three layers: a point-forecaster pool (held fixed; not the
+contribution), an online regime estimator, and the calibration layer that
+is the subject of the paper. Figure~\ref{fig:coverage} previews the
+outcome; this section specifies the machinery that produces it.
+
+\subsection{Forecasting layer (fixed)}
+
+The target is next-day log realized variance $y_{i,t+1} = \log
+\mathrm{RV}_{i,t+1}$ per stock $i$. The pool combines a per-stock HAR
+regression \citep{corsi2009simple} and a pooled gradient-boosted model
+(LightGBM) by exponentially weighted aggregation on QLIKE loss
+\citep{patton2011volatility}, refit on an expanding window with a hard
+train/test date assertion. The pool ties its components (QLIKE 0.191 vs
+0.194/0.188; Table~\ref{tab:e0}); everything downstream applies unchanged
+to any member (Section~\ref{sec:ablations} conformalizes HAR and LightGBM
+alone), to a zero-shot foundation model (Section~\ref{sec:tsfm}), and to
+the return stream directly for VaR (Section~\ref{sec:var}).
+
+\subsection{Regime layer}
+
+At the close of day $t$ the market state comprises the trailing-750-day
+VIX percentile, the market realized-volatility percentile, and
+cross-sectional dispersion, all strictly backward-looking. The canonical
+estimator is transparent: $K = 4$ regimes as VIX-percentile bins with
+edges $(0.5, 0.8, 0.95)$, aligned with the evaluation slices. A soft
+alternative --- an online Gaussian HMM refit on an expanding window every
+quarter, issuing \emph{filtered} probabilities $\pi_t(k)$ --- yields the
+same conclusions (Section~\ref{sec:oracle}), so transparency costs
+nothing. An optional forward-looking \emph{acute} group, active when the
+9-day implied volatility exceeds 30-day (VIX9D/VIX $> 1$), sharpens the
+stress upper tail (Section~\ref{sec:onset}). The calibrator consumes any
+membership vector $\pi_t \in \Delta^{K-1}$; nothing assumes the regimes
+are correct, and Section~\ref{sec:theory} states guarantees relative to
+the estimated memberships.
+
+\subsection{Calibration layer}
+
+\paragraph{Scores.} Each stock-day produces a standardized nonconformity
+score $s_{i,t} = (y_{i,t} - m_{i,t}) / \hat\sigma_{i,t}$, where $m_{i,t}$
+is the pool forecast and $\hat\sigma_{i,t}$ a trailing MAD scale of that
+stock's own recent scores. Standardization puts all stocks on a comparable
+scale, which is what makes cross-sectional pooling meaningful.
+
+\paragraph{Pooled per-regime tracking.} The layer maintains per-regime
+upper and lower thresholds $q_t^{\mathrm{hi}}(k), q_t^{\mathrm{lo}}(k)$
+and per-stock offsets $\delta_i$, issues stock $i$ the interval
+\[
+  m_{i,t} \pm \bigl( \textstyle\sum_k \pi_t(k)\, q_t(k) + \delta_i \bigr)
+  \hat\sigma_{i,t},
+\]
+and after observing outcomes takes one gradient step per \emph{stock-day}
+(Section~\ref{sec:theory}, eq.~\eqref{eq:update}): every regime's
+threshold moves proportionally to its membership and to the day's summed
+coverage error across the panel. This per-observation stepping is the
+pooling mechanism --- on a 100-name panel, the stress regime receives
+roughly $15{,}000$ updates over the sample where a single stock would
+provide $\sim$150. Offsets absorb residual per-stock idiosyncrasy and are
+L2-shrunk toward zero (empirically negligible;
+Table~\ref{tab:ablations}).
+
+\paragraph{Self-tuning rates.} Rare regimes need fast learning rates and
+extreme quantiles need large steps; hand-tuning those is the kind of
+researcher degree of freedom we want to eliminate. Each regime therefore
+keeps a bank of expert thresholds, one per rate in a fixed dyadic grid,
+combined by exponential weights on pinball loss --- DtACI
+\citep{gibbs2022conformal} run \emph{per regime}, with all expert updates,
+weight updates, and uniform mixing gated by $\pi_t(k)$ so that a regime
+learns only in its own (membership-weighted) time. Because a
+weight-averaged threshold can be dragged by slow experts during shifts, a
+per-regime additive corrector updates on the \emph{issued} interval's
+misses at one universal rate --- the quantile-tracking-plus-integrator
+structure of conformal PID control \citep{angelopoulos2023conformal}. The
+corrector, not the bank, carries the coverage guarantee
+(Remark~\ref{rem:adaptive}); the bank carries adaptivity. The full
+configuration has \emph{no tuned parameters}, and its learned effective
+rates reproduce what hand-tuning found: stress-regime rates roughly twice
+calm rates, and 1\%-tail rates roughly twice 5\%-tail rates
+(Section~\ref{sec:results}).
+
+\paragraph{One-sided head and VaR.} The risk application tracks a single
+upper threshold at level $\alpha \in \{0.05, 0.01\}$ on standardized
+return losses, mapping through the location--scale construction to
+next-day VaR. All machinery is otherwise identical
+(Proposition~\ref{prop:onesided}).
+
+\paragraph{Reductions.} With $K = 1$ the layer is pooled marginal
+tracking; with hard memberships, a single-rate grid, and the corrector
+off, it reduces \emph{exactly} to the fixed-rate path (regression-tested
+to $10^{-12}$); with pooling off it collapses to per-stock Mondrian ACI.
+These reductions are the ablation grid of
+Section~\ref{sec:ablations}.

@@ -1,0 +1,91 @@
+\section{Related work}\label{sec:related}
+
+\paragraph{Online conformal prediction.}
+Adaptive conformal inference (ACI) tracks a coverage target online through
+distribution shift \citep{gibbs2021adaptive}; DtACI aggregates ACI experts
+over a learning-rate grid \citep{gibbs2022conformal}, SF-OGD provides
+strongly adaptive regret guarantees \citep{bhatnagar2023improved}, and
+conformal PID control adds integrator and forecast terms
+\citep{angelopoulos2023conformal}. AgACI \citep{zaffran2022adaptive},
+EnbPI \citep{xu2021conformal}, HopCPT \citep{auer2023conformal}, and
+weighted variants beyond exchangeability \citep{barber2023conformal} adapt
+conformal prediction to temporal dependence. All of these target
+\emph{marginal} coverage of a single stream; our starting exhibit is that
+marginal validity is insufficient in exactly the states where volatility
+intervals are consumed. Our adaptive-rate machinery builds directly on
+DtACI, and our corrector has the quantile-tracking-plus-integrator
+structure of conformal PID; the delta is that both operate per regime,
+gated by online-estimated memberships, and are pooled across a panel.
+
+\paragraph{Conditional and group-conditional coverage.}
+Exact distribution-free conditional coverage is impossible in finite
+samples \citep{foygelbarber2021limits}; practical work therefore targets
+coverage over specified groups. Multivalid prediction achieves multi-group
+validity in batch and adversarial settings \citep{bastani2022practical},
+and \citet{bharti2026parameterfree} obtain parameter-free group-conditional
+online conformal guarantees. In all of these the groups are \emph{given} to
+the algorithm. Our regimes are estimated online from market data --- the
+guarantee necessarily conditions on the filtered estimate, and we quantify
+the cost of that estimation both theoretically
+(Remark~\ref{rem:estimated}) and with an oracle ablation
+(Section~\ref{sec:oracle}). With hard, given regimes and fixed rates, our
+tracker reduces to a group-conditional scheme in the spirit of this
+literature; the reduction is exact and regression-tested.
+
+\paragraph{Conformal methods in finance.}
+A rapidly growing 2025--26 literature applies conformal calibration to
+financial risk. \citet{schmitt2026taming} calibrates one-sided portfolio
+VaR with recency and regime-similarity weights under weighted
+exchangeability; \citet{aich2025temporal} combine quantile regression with
+decaying-rate online conformal updates on index data;
+\citet{proxyvar2026} recalibrate one-sided VaR with proxy-reliance
+control; \citet{su2024adaptive} perform conformal inference for hidden
+states of an HMM. Relative to this line, our setting is a cross-sectional
+\emph{panel} of individual equities rather than a single portfolio or
+index; our regimes are estimated online rather than supplied as features;
+our target is regime-\emph{conditional} coverage rather than marginal; and
+we evaluate conditionally throughout. \citet{lin2022conformal} and the
+weighted panel extension of arXiv:2605.17705 pool calibration information
+across cross-sectional units via similarity weights; our ablation of a
+similarity-weighted baseline (Section~\ref{sec:results}) shows that
+similarity without coverage feedback leaves the stress deficit essentially
+intact, which is why our pooling operates inside a tracking loop instead.
+
+\paragraph{Volatility and VaR econometrics.}
+HAR regressions \citep{corsi2009simple} on realized measures
+\citep{andersen2003modeling} remain the point-forecasting workhorse;
+GARCH-$t$ \citep{bollerslev1986generalized} and CAViaR
+\citep{engle2004caviar} are the canonical parametric and semiparametric
+VaR models, and we evaluate against both with standard backtests
+\citep{kupiec1995techniques, christoffersen1998evaluating}. Within the
+International Journal of Forecasting, regime structure in volatility
+forecasting is an active conversation --- regime-switching GARCH-MIDAS
+\citep{segnon2024forecasting}, deep switching state-space models
+\citep{xu2026deep}, time-varying distributional shape of realized
+volatility \citep{opschoor2023realized}, extreme-return quantile
+forecasting \citep{tomlinson2024hawkes}, quantile-scale VaR/ES dynamics
+\citep{liu2026quantile}, and forecasting after extreme observations
+\citep{boug2026getting}. These papers model the volatility process or its
+tails; we take any such forecaster as given and repair the conditional
+validity of its uncertainty statements --- a complementary layer, not a
+competing model. Our day-2 finding echoes \citet{boug2026getting}'s
+evidence that forecasts struggle immediately after extreme observations,
+sharpened here to a specific, quantified coverage limit.
+
+\paragraph{Time-series foundation models.}
+Zero-shot TSFMs --- Chronos \citep{ansari2024chronos}, TimesFM
+\citep{das2024decoder}, Moirai \citep{woo2024unified} --- are entering
+forecasting practice, and recent evaluation on realized volatility
+considers point accuracy only \citep{brini2026forecasting}. We add the
+calibration dimension: Chronos-Bolt's native bands are directionally
+miscalibrated in stress, and a conformal layer with regime pooling repairs
+them at modest width cost. To our knowledge this is the first
+regime-conditional calibration audit of a TSFM in finance.
+
+\paragraph{The gap.}
+No prior work combines online-\emph{estimated} regimes,
+cross-sectional pooling of the calibration signal, regime-conditional
+coverage targets with per-regime guarantees, one-sided VaR heads, and
+foundation-model repair --- evaluated conditionally at panel scale. Each
+element exists in isolation somewhere in the literature above; the
+combination, and the phenomenon that motivates it, do not.

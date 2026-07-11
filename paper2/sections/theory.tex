@@ -1,0 +1,211 @@
+% Theory: finite-sample regime-conditional coverage for the pooled tracker.
+% Notation matches src/conformal/panel_hierarchical.py EXACTLY:
+%   issued threshold  q_t = sum_k pi_t(k) q_t(k)  (+ per-stock offset delta_i)
+%   update            q_{t+1}(k) = q_t(k) + eta_k pi_t(k) sum_i (err_{i,t} - a)
+% where err_{i,t} = 1{s_{i,t} > q_t + delta_i} is computed on the ISSUED
+% threshold (the issued-interval rule), and a is the per-side miss budget.
+
+\section{Coverage guarantees}\label{sec:theory}
+
+The guarantees in this section are deterministic statements about the
+calibration algorithm's realized error sequence, in the adversarial style of
+\citet{gibbs2021adaptive}: they hold for \emph{every} sequence of
+nonconformity scores, with no exchangeability, stationarity, or independence
+assumption --- in particular, arbitrary serial dependence and arbitrary
+cross-sectional dependence among stocks are covered. Dependence affects how
+the deterministic frequency statements below relate to population
+conditional probabilities (Remark~\ref{rem:dependence}), not the statements
+themselves.
+
+\subsection{Setup and notation}
+
+On day $t$ the panel contains stocks $i \in \mathcal{I}_t$ with
+$n_t = |\mathcal{I}_t|$, and the calibrator observes a membership vector
+$\pi_t = (\pi_t(1), \dots, \pi_t(K))$ with $\pi_t(k) \ge 0$,
+$\sum_k \pi_t(k) = 1$, produced by a regime estimator using only information
+available at the forecast origin ($\mathcal{F}_{t-1}$-measurable). Each
+stock-day carries a standardized nonconformity score $s_{i,t}$; for the
+two-sided interval the upper side uses $s_{i,t}$ and the lower side uses
+$-s_{i,t}$, each tracked independently, so we present one side. Write
+$a \in (0,1)$ for the side's miss budget ($a = \alpha/2$ two-sided,
+$a = \alpha$ for the one-sided risk head).
+
+The calibrator maintains per-regime thresholds $q_t(k)$ and issues to every
+stock the mixture threshold
+\begin{equation}\label{eq:issued}
+  \bar q_t \;=\; \sum_{k=1}^{K} \pi_t(k)\, q_t(k),
+\end{equation}
+(per-stock offsets $\delta_i$ are treated in
+Remark~\ref{rem:offsets}). After the day's outcomes are observed, define the
+miss indicators and the day's summed excess miss
+\begin{equation}\label{eq:err}
+  \mathrm{err}_{i,t} \;=\; \mathbf{1}\{ s_{i,t} > \bar q_t \},
+  \qquad
+  g_t \;=\; \sum_{i \in \mathcal{I}_t} \bigl( \mathrm{err}_{i,t} - a \bigr),
+\end{equation}
+and update every regime's threshold by one per-observation gradient step
+gated by its membership:
+\begin{equation}\label{eq:update}
+  q_{t+1}(k) \;=\; q_t(k) \;+\; \eta_k\, \pi_t(k)\, g_t .
+\end{equation}
+Equation~\eqref{eq:update} is online (sub)gradient descent on the pinball
+loss of the \emph{issued} threshold, with the step applied per stock-day:
+pooling means a regime's threshold advances by the number of stock-days it
+governs, which is the design's point --- on a 100-name panel a stress regime
+accrues roughly $100\times$ the updates any single stock could provide.
+
+We make one boundedness assumption, standard in this literature and
+verifiable in-sample.
+
+\begin{assumption}\label{ass:bounded}
+Scores are bounded: $|s_{i,t}| \le B$ for all $(i,t)$.
+\end{assumption}
+
+Under Assumption~\ref{ass:bounded} the iterates \eqref{eq:update} remain in
+the interval $[-B - \eta_k \bar n,\; B + \eta_k \bar n]$ with
+$\bar n = \max_t n_t$: whenever $q_t(k) > B$ every score is covered, each
+$g_t \le 0$ term pushes the threshold down, and a single step moves it by at
+most $\eta_k n_t$; symmetrically from below.\footnote{MAD-standardized
+log-volatility errors are empirically bounded ($|s| < 12$ across all 519{,}843
+stock-days); alternatively the update can be clipped to $[-B, B]$ without
+affecting any result below.}
+
+\subsection{Per-regime coverage}
+
+\begin{proposition}[Hard regimes]\label{prop:hard}
+Let memberships be hard, $\pi_t \in \{0,1\}^K$, and let
+$\mathcal{T}_k = \{ t \le T : \pi_t(k) = 1 \}$ with
+$N_k = \sum_{t \in \mathcal{T}_k} n_t$ stock-days. Then for every regime $k$
+and every score sequence,
+\[
+  \Bigl|\; \frac{1}{N_k} \sum_{t \in \mathcal{T}_k} \sum_{i \in \mathcal{I}_t}
+     \bigl( \mathrm{err}_{i,t} - a \bigr) \;\Bigr|
+  \;\le\; \frac{ 2B + \eta_k \bar n }{ \eta_k \, N_k }.
+\]
+Thus the realized miss frequency inside regime $k$ converges to the nominal
+budget $a$ at rate $O(1/N_k)$ in the regime's \emph{stock-day} count --- the
+pooled clock, not the single-stock clock.
+\end{proposition}
+
+\begin{proof}
+With hard memberships, only regime $k$'s threshold moves on days
+$t \in \mathcal{T}_k$, by exactly $\eta_k g_t$. Telescoping
+\eqref{eq:update} over $\mathcal{T}_k$,
+\[
+  q_{T+1}(k) - q_{1}(k) \;=\; \eta_k \sum_{t \in \mathcal{T}_k} g_t
+  \;=\; \eta_k \sum_{t \in \mathcal{T}_k} \sum_{i}
+        \bigl( \mathrm{err}_{i,t} - a \bigr).
+\]
+Both iterates lie in $[-B - \eta_k \bar n, B + \eta_k \bar n]$, so the
+left side is bounded by $2B + 2\eta_k \bar n$ in absolute value; dividing by
+$\eta_k N_k$ gives the claim (absorbing one $\eta_k \bar n$ term, since
+$q_1(k) \in [-B, B]$ by initialization from warmup quantiles).
+\end{proof}
+
+\begin{proposition}[Soft regimes]\label{prop:soft}
+For arbitrary soft memberships and every regime $k$, define the
+$\pi$-weighted stock-day mass $W_k = \sum_{t \le T} \pi_t(k)\, n_t$. Then
+\[
+  \Bigl|\; \frac{1}{W_k} \sum_{t \le T} \pi_t(k) \sum_{i \in \mathcal{I}_t}
+     \bigl( \mathrm{err}_{i,t} - a \bigr) \;\Bigr|
+  \;\le\; \frac{ 2B + \eta_k \bar n }{ \eta_k \, W_k },
+\]
+i.e.\ coverage is valid at the nominal level in every regime's
+\emph{membership-weighted} time, at rate $O(1/W_k)$. Moreover, summing the
+telescoped identities over $k$ with weights $\eta_k^{-1}$ and using
+$\sum_k \pi_t(k) = 1$ yields marginal validity:
+\[
+  \Bigl|\; \frac{1}{N} \sum_{t \le T} \sum_{i}
+     \bigl( \mathrm{err}_{i,t} - a \bigr) \;\Bigr|
+  \;\le\; \frac{ \sum_k \eta_k^{-1} \bigl( 2B + \eta_k \bar n \bigr) }{ N },
+  \qquad N = \sum_t n_t .
+\]
+\end{proposition}
+
+\begin{proof}
+Telescoping \eqref{eq:update} for a fixed $k$ over all $t \le T$ gives
+$q_{T+1}(k) - q_1(k) = \eta_k \sum_t \pi_t(k)\, g_t$; the first display
+follows from the same boundedness as in Proposition~\ref{prop:hard}. For the
+second display, divide each telescoped identity by $\eta_k$ and sum over
+$k$:
+$\sum_k \eta_k^{-1} \bigl( q_{T+1}(k) - q_1(k) \bigr)
+ = \sum_t g_t \sum_k \pi_t(k) = \sum_t g_t$,
+and bound the left side termwise.
+\end{proof}
+
+\begin{proposition}[One-sided risk head]\label{prop:onesided}
+The one-sided calibrator tracks a single upper threshold with $a = \alpha$
+and the same update \eqref{eq:update}; Propositions~\ref{prop:hard}
+and~\ref{prop:soft} apply verbatim, giving per-regime control of the
+exceedance frequency
+$\smash{ \frac{1}{W_k} \sum_t \pi_t(k) \sum_i \mathbf{1}\{ s_{i,t} > \bar q_t \} }
+ \to \alpha$
+at rate $O(1/W_k)$. Mapped through the location--scale VaR construction,
+this is a regime-conditional breach-frequency guarantee.
+\end{proposition}
+
+\subsection{Remarks on scope}
+
+\begin{remark}[Arbitrary dependence]\label{rem:dependence}
+Propositions~\ref{prop:hard}--\ref{prop:onesided} are identities about
+realized frequencies and hold pathwise: correlated stocks, volatility
+clustering, and regime persistence do not weaken them. What dependence
+\emph{does} govern is the effective information content of $N_k$ and $W_k$
+--- on a day when the cross-section moves as one, $n_t$ stock-days
+contribute one effective observation, so the practical convergence clock
+lies between calendar days in regime $k$ and stock-days in regime $k$. Our
+empirical evaluation therefore reports conditional coverage directly (and
+its uncertainty via date-clustered standard errors) rather than relying on
+the worst-case rates above.
+\end{remark}
+
+\begin{remark}[Estimated regimes]\label{rem:estimated}
+The guarantees condition on the calibrator's own membership sequence
+$\pi_t$ --- the operationally meaningful object, since $\pi_t$ is what a
+risk desk can compute at the forecast origin --- not on a latent true
+regime $\pi_t^\ast$. Coverage conditional on the truth differs from
+coverage conditional on the estimate by at most the membership
+misalignment: for hard regimes, the miss-frequency gap in regime $k$ is
+bounded by the relative frequency of misclassified stock-days,
+$\smash{ W_k^{-1} \sum_t | \pi_t(k) - \pi_t^\ast(k) |\, n_t }$. We quantify
+this empirically rather than only in the worst case: replacing our filtered
+memberships with full-sample smoothed (oracle) memberships changes stress
+coverage by $+0.3$ percentage points (Section~\ref{sec:oracle}), so regime
+estimation error is not the binding constraint in this application.
+\end{remark}
+
+\begin{remark}[Per-stock offsets]\label{rem:offsets}
+The implementation adds a small per-stock offset $\delta_i$ (an L2-shrunk
+idiosyncrasy absorber) to the issued threshold. All propositions apply to
+the pooled component with $\mathrm{err}_{i,t}$ as issued (offsets included
+in the indicator), because the update \eqref{eq:update} uses exactly those
+indicators; the ablation in Section~\ref{sec:ablations} shows offsets are
+empirically negligible ($\Delta$ stress coverage $< 0.1$pp).
+\end{remark}
+
+\begin{remark}[Adaptive rates]\label{rem:adaptive}
+The zero-tuning configuration replaces each fixed $\eta_k$ with a
+DtACI-style expert bank \citep{gibbs2022conformal} whose issued threshold is
+a weight-average of expert thresholds plus a per-regime corrector $c_k$
+updated by the \emph{same} issued-interval rule \eqref{eq:update} at a
+universal rate $\eta_{\mathrm{corr}}$. Because expert thresholds and weights
+are bounded, the corrector's telescoped identity reproduces
+Proposition~\ref{prop:soft} for the issued interval with
+$\eta_k = \eta_{\mathrm{corr}}$ and $B$ enlarged by the expert-bank span:
+the aggregator buys adaptivity of the \emph{rate}, while the corrector
+anchors realized coverage of what is actually issued. With a single-element
+grid and $\eta_{\mathrm{corr}} = 0$ the adaptive path reduces exactly to
+\eqref{eq:update} (regression-tested to $10^{-12}$).
+\end{remark}
+
+\begin{remark}[What is not claimed]\label{rem:notclaimed}
+The propositions control realized miss \emph{frequencies} in
+regime-weighted time over the evaluation horizon. They are not
+finite-sample conditional-probability statements for an individual day
+(impossible without distributional assumptions,
+\citealp{foygelbarber2021limits}), and they do not by themselves guarantee
+coverage inside sub-regime events shorter than the convergence scale ---
+the empirically binding case being the first days of a volatility spike
+(Section~\ref{sec:onset}), where the score distribution shifts faster than
+any tracker with bounded step size can follow.
+\end{remark}

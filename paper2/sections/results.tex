@@ -1,0 +1,177 @@
+\section{Results}\label{sec:results}
+
+\subsection{Point-forecast sanity}
+
+Table~\ref{tab:e0} verifies the fixed forecasting layer is not degraded:
+the online pool ties HAR and LightGBM on QLIKE and log-RMSE (panel
+DM test with date-clustered HAC errors, pool vs HAR $p = 0.054$). No
+accuracy claim is made anywhere in the paper; this table exists so that
+calibration results cannot be attributed to a weak or strong point model.
+
+\begin{table}[t]
+\centering
+\caption{Point-forecast sanity (E0). The pool is statistically
+indistinguishable from its best member; the calibration layer applies
+unchanged to any column.}
+\label{tab:e0}
+\begin{tabular}{lcc}
+\toprule
+Model & QLIKE & RMSE (log RV) \\
+\midrule
+HAR & 0.1937 & 0.5320 \\
+LightGBM & 0.1883 & 0.5286 \\
+Online pool & 0.1906 & 0.5302 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The phenomenon and the repair}\label{sec:main}
+
+\begin{figure}[t]
+\centering
+\includegraphics{figures/fig_coverage_by_regime.pdf}
+\caption{Coverage of nominal 90\% intervals by market regime, 2010--2025
+(269{,}705 common stock-days). Per-stock ACI is marginally valid (89.9\%)
+but redistributes its errors: over-coverage in elevated regimes pays for
+82.9\% coverage in stress. The regime-conditional layer (RC) removes most
+of the conditional deficit while holding other regimes at nominal.}
+\label{fig:coverage}
+\end{figure}
+
+Table~\ref{tab:main} is the paper's central comparison: seven methods on
+the identical common sample. The baselines span the online conformal
+family (ACI, DtACI, SF-OGD), a classical direct-quantile model (HAR
+quantile regression), and a similarity-weighted conformal method
+(KNN-state, in the spirit of HopCPT/NexCP: thresholds from the $k = 250$
+most similar past days by market state). Every marginal coverage sits
+within half a point of 90\%; every baseline's stress coverage sits between
+81.5\% and 84.0\%. The two regime-conditional variants --- hand-tuned
+rates and the zero-tuning adaptive configuration --- reach 88.1--88.2\%,
+with the stress upper tail at 94.0\% against 95\% nominal versus
+84.8--91.0\% for the baselines.
+
+\begin{table}[t]
+\centering
+\caption{Main comparison (E2): coverage of nominal 90\% intervals and
+interval widths on the common sample. ``Stress up'' is upper-tail coverage
+in stress (nominal 95\%). RC~=~regime-conditional pooled layer.}
+\label{tab:main}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+ & Marginal & Calm & Stress & Stress up & Width & Width (stress) \\
+\midrule
+ACI & .899 & .897 & .829 & .901 & 1.70 & 1.80 \\
+DtACI & .899 & .897 & .836 & .906 & 1.70 & 1.87 \\
+SF-OGD & .899 & .898 & .840 & .910 & 1.73 & 1.91 \\
+HAR-QREG & .890 & .886 & .815 & .848 & 1.65 & 1.71 \\
+KNN-state & .894 & .892 & .829 & .908 & 1.67 & 1.84 \\
+RC (hand-tuned) & .898 & .899 & \textbf{.882} & \textbf{.941} & 1.70 & 2.26 \\
+RC (adaptive) & .899 & .900 & \textbf{.881} & \textbf{.940} & 1.73 & 2.34 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three readings of Table~\ref{tab:main} matter. First, the repair is a
+\emph{reallocation}, not an inflation: RC average width matches ACI (1.73
+vs 1.70) because width moves into stress ($+$30\%) and out of regimes
+where baselines over-cover. Second, the reallocation is free by the
+standard economic metric: a Model Confidence Set \citep{hansen2011model}
+over daily cross-sectional mean interval scores \citep{winkler1972decision}
+retains both RC variants among the undominated set (RC hand-tuned has the
+lowest mean loss) and eliminates SF-OGD ($p < .001$). Conditional validity
+costs nothing in average interval score. Third, similarity weighting
+without a coverage feedback loop does not solve the problem: KNN-state
+improves on ACI in stress by 0.1 points --- selecting similar days is not
+the same as tracking a coverage target within a regime, which is why our
+pooling operates inside the tracking loop.
+
+\subsection{Self-tuning rates}\label{sec:adaptive}
+
+The adaptive configuration replaces every hand-chosen learning rate with
+per-regime expert aggregation plus the issued-interval corrector
+(Section~\ref{sec:method}). With zero tuned parameters it ties the
+hand-tuned stress coverage (88.1 vs 88.2), improves calm/normal coverage
+to 90.0, and costs 2\% average width. Its learned effective rates
+recover, online, both regularities that manual tuning had discovered:
+stress-regime effective rates converge to $\approx 0.009$ against a
+hand-tuned $0.01$, and 1\%-VaR rates to $\approx 0.020$ against a
+hand-tuned $0.02$. We treat the adaptive configuration as the headline
+method and the hand-tuned one as an ablation.
+
+\subsection{Value-at-Risk}\label{sec:var}
+
+Table~\ref{tab:var} applies the one-sided head to next-day VaR and
+backtests all methods with Kupiec, Christoffersen, and dynamic-quantile
+tests per stock. The classical parametric models fail exactly where the
+conformal baselines do: on stress days, 99\% VaR breach rates are 4.1\%
+(GARCH-$t$), 5.4\% (CAViaR), and 3.1\% (ACI) against a 1\% budget. The RC
+head reaches 1.8\% --- still above nominal, and we say so --- with the
+best marginal rates (5.02/1.07 against 5/1 budgets) and the highest
+backtest pass rates of all seven methods. Conditional balance matters as
+much as levels: without regimes ($K = 1$), 5\% VaR inverts its errors
+(breaching 5.3\% on calm days and 3.6\% on stress days); with regimes the
+profile is 5.0/5.7 (Section~\ref{sec:ablations}).
+
+\begin{table}[t]
+\centering
+\caption{Next-day VaR backtests (E3). Stress-day breach rates against
+nominal 5\% and 1\%; DQ pass is the share of stocks passing the
+dynamic-quantile test at the 99\% level.}
+\label{tab:var}
+\small
+\begin{tabular}{lccc}
+\toprule
+ & 95\% stress breach & 99\% stress breach & 99\% DQ pass \\
+\midrule
+Normal (Gaussian) & 12.5\% & 6.7\% & .03 \\
+FHS & 9.0\% & 2.7\% & .61 \\
+GARCH-$t$ & 11.9\% & 4.1\% & .42 \\
+CAViaR & 12.6\% & 5.4\% & .35 \\
+ACI & 8.6\% & 3.1\% & .48 \\
+RC (hand-tuned) & 5.6\% & 1.6\% & .70 \\
+RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.72} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Foundation models have the same disease}\label{sec:tsfm}
+
+Chronos-Bolt \citep{ansari2024chronos}, applied zero-shot to each stock's
+trailing 512-day log-RV history, is competitive on point accuracy with no
+training --- consistent with \citet{brini2026forecasting} --- but its
+native 80\% band covers 77.9\% marginally and is \emph{directionally}
+wrong in stress: 14.6\% upside misses against a 10\% budget versus 5.7\%
+downside. In a crisis the model's uncertainty points the wrong way, and
+its architecture cannot express quantiles beyond $[0.1, 0.9]$, capping any
+native risk use. Wrapping Chronos's median with our layer flattens
+coverage to $79.8 \pm 0.1\%$ in every regime. The repair is
+forecaster-agnostic by construction; this experiment shows it extends to
+the model class currently entering forecasting practice.
+
+\subsection{Crisis episodes, holdout, and robustness}\label{sec:episodes}
+
+\begin{figure}[t]
+\centering
+\includegraphics{figures/fig_episodes.pdf}
+\caption{Coverage of nominal 90\% intervals within eight crisis episodes
+(E9). RC improves the four worst episodes --- COVID by 9.3 points
+(.786 $\to$ .879) and the 2025 tariff shock by 9.9 (.765 $\to$ .864) ---
+and tracks nominal more closely in episodes where ACI over-covers (2022).
+Flash-onset episodes (2015, 2024) move least, consistent with
+Section~\ref{sec:onset}.}
+\label{fig:episodes}
+\end{figure}
+
+Figure~\ref{fig:episodes} slices the sample into eight named stress
+windows. The pattern is the day-2 result writ large: episodes with
+sustained stress (COVID, 2018~Q4, 2011, 2025) improve by 3--10 points;
+one-week flash events dominated by their onset days (2015 CNY devaluation,
+2024 yen unwind) barely move --- the honest boundary again. Robustness
+checks (artifacts in the replication package): the failure and its repair
+reproduce on disjoint alternating-alphabet halves of the universe with a
+frozen configuration (stress coverage .832/.829 ACI vs .875/.876 RC);
+conclusions are stable across $\alpha \in \{0.05, 0.10, 0.20\}$ (at
+$\alpha = .05$: ACI stress .891 vs RC .932 against .95); and replacing
+VIX bins with the online HMM changes stress coverage by under two points,
+so no conclusion depends on the regime estimator.
