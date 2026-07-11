@@ -24,7 +24,7 @@ coverage over specified groups. Multivalid prediction achieves multi-group
 validity in batch and adversarial settings \citep{bastani2022practical},
 and \citet{bharti2026parameterfree} obtain parameter-free group-conditional
 online conformal guarantees. In all of these the groups are \emph{given} to
-the algorithm. Our regimes are estimated online from market data --- the
+the algorithm. Our regimes are estimated online from market data: the
 guarantee necessarily conditions on the filtered estimate, and we quantify
 the cost of that estimation both theoretically
 (Remark~\ref{rem:estimated}) and with an oracle ablation
@@ -59,7 +59,7 @@ GARCH-$t$ \citep{bollerslev1986generalized} and CAViaR
 VaR models, and we evaluate against both with standard backtests
 \citep{kupiec1995techniques, christoffersen1998evaluating}. Within the
 International Journal of Forecasting, regime structure in volatility
-forecasting is an active conversation --- regime-switching GARCH-MIDAS
+forecasting is an active conversation: regime-switching GARCH-MIDAS
 \citep{segnon2024forecasting}, deep switching state-space models
 \citep{xu2026deep}, time-varying distributional shape of realized
 volatility \citep{opschoor2023realized}, extreme-return quantile
@@ -67,14 +67,14 @@ forecasting \citep{tomlinson2024hawkes}, quantile-scale VaR/ES dynamics
 \citep{liu2026quantile}, and forecasting after extreme observations
 \citep{boug2026getting}. These papers model the volatility process or its
 tails; we take any such forecaster as given and repair the conditional
-validity of its uncertainty statements --- a complementary layer, not a
+validity of its uncertainty statements. The result is a complementary layer, not a
 competing model. Our day-2 finding echoes \citet{boug2026getting}'s
 evidence that forecasts struggle immediately after extreme observations,
 sharpened here to a specific, quantified coverage limit.
 
 \paragraph{Time-series foundation models.}
-Zero-shot TSFMs --- Chronos \citep{ansari2024chronos}, TimesFM
-\citep{das2024decoder}, Moirai \citep{woo2024unified} --- are entering
+Zero-shot TSFMs such as Chronos \citep{ansari2024chronos}, TimesFM
+\citep{das2024decoder}, and Moirai \citep{woo2024unified} are entering
 forecasting practice, and recent evaluation on realized volatility
 considers point accuracy only \citep{brini2026forecasting}. We add the
 calibration dimension: Chronos-Bolt's native bands are directionally
@@ -86,6 +86,6 @@ regime-conditional calibration audit of a TSFM in finance.
 No prior work combines online-\emph{estimated} regimes,
 cross-sectional pooling of the calibration signal, regime-conditional
 coverage targets with per-regime guarantees, one-sided VaR heads, and
-foundation-model repair --- evaluated conditionally at panel scale. Each
+foundation-model repair, all evaluated conditionally at panel scale. Each
 element exists in isolation somewhere in the literature above; the
 combination, and the phenomenon that motivates it, do not.

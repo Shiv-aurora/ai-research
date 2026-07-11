@@ -145,12 +145,91 @@ def fig_episodes():
     plt.close(fig)
 
 
+def fig_var_breach():
+    """Stress-day VaR breach rates vs nominal budgets, 7 methods (E3)."""
+    e3 = pd.read_csv(REP / "e3_var_summary.csv")
+    order = ["normal", "fhs", "garch_t", "caviar", "aci", "rc_panel", "rc_adaptive"]
+    names = {"normal": "Normal", "fhs": "FHS", "garch_t": "GARCH-t",
+             "caviar": "CAViaR", "aci": "ACI", "rc_panel": "RC (hand-tuned)",
+             "rc_adaptive": "RC (adaptive)"}
+    y = np.arange(len(order))[::-1]
+    fig, axes = plt.subplots(1, 2, figsize=(3.5, 2.1), sharey=True)
+    for ax, alpha, nom in zip(axes, [0.05, 0.01], [5.0, 1.0]):
+        sub = e3[e3["alpha"] == alpha].set_index("method")
+        vals = 100 * sub.loc[order, "rate_stress"].values.astype(float)
+        colors = [BLUE if m.startswith("rc_") else VERM for m in order]
+        ax.barh(y, vals, 0.62, color=colors, zorder=3)
+        ax.axvline(nom, ls="--", lw=0.9, color=GRAY, zorder=4)
+        ax.set_xlabel(f"{100 * (1 - alpha):.0f}\\% VaR\n(budget {nom:.0f}%)"
+                      .replace("\\%", "%"))
+        ax.grid(axis="y", visible=False)
+    axes[0].set_yticks(y, [names[m] for m in order])
+    axes[1].tick_params(left=False)
+    fig.tight_layout()
+    fig.savefig(OUT / "fig_var_breach.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def fig_tsfm_repair():
+    """Chronos native band vs conformalized band, coverage by regime (E4)."""
+    raw = pd.read_csv(REP / "e4_tsfm_raw_coverage.csv").set_index("vix_pctl")
+    rep = pd.read_csv(REP / "e4_tsfm_repaired_coverage.csv").set_index("vix_pctl")
+    x = np.arange(len(REGIMES))
+    w = 0.34
+    fig, ax = plt.subplots(figsize=(3.5, 2.2))
+    ax.bar(x - w / 2, raw.loc[REGIMES, "mean"], w, color=VERM,
+           label="Chronos native 80% band", zorder=3)
+    ax.bar(x + w / 2, rep.loc[REGIMES, "mean"], w, color=BLUE,
+           label="Conformalized (ours)", zorder=3)
+    ax.axhline(0.80, ls="--", lw=0.9, color=GRAY, zorder=2)
+    ax.text(3.42, 0.802, "nominal 80%", color=GRAY, fontsize=7,
+            ha="right", va="bottom")
+    ax.set_xticks(x, [r.capitalize() for r in REGIMES])
+    ax.set_ylim(0.74, 0.83)
+    ax.set_ylabel("Empirical coverage")
+    ax.legend(frameon=False, loc="lower center", bbox_to_anchor=(0.5, 1.0),
+              ncols=2, columnspacing=1.0)
+    fig.tight_layout()
+    fig.savefig(OUT / "fig_tsfm_repair.pdf")
+    plt.close(fig)
+
+
+def fig_alpha_sweep():
+    """Stress coverage deficit (points below nominal) across alpha (E12)."""
+    e12 = pd.read_csv(REP / "e12_alpha_sweep.csv")
+    alphas = [0.05, 0.1, 0.2]
+    x = np.arange(len(alphas))
+    w = 0.34
+    fig, ax = plt.subplots(figsize=(3.5, 2.1))
+    for off, method, color, label in [(-w / 2, "aci", VERM, "ACI"),
+                                      (w / 2, "rc_adaptive", BLUE, "RC (ours)")]:
+        d = [100 * ((1 - a) - float(
+                e12[(e12["alpha"] == a) & (e12["method"] == method)]
+                ["cov_stress"].iloc[0]))
+             for a in alphas]
+        ax.bar(x + off, d, w, color=color, label=label, zorder=3)
+        for xi, v in zip(x + off, d):
+            ax.text(xi, v + 0.1, f"{v:.1f}", ha="center", fontsize=6.7,
+                    color="#333")
+    ax.set_xticks(x, [f"{100 * (1 - a):.0f}% nominal" for a in alphas])
+    ax.set_ylim(0, 8.2)
+    ax.set_ylabel("Stress coverage deficit (pp)")
+    ax.legend(frameon=False, loc="lower center", bbox_to_anchor=(0.5, 1.0),
+              ncols=2, columnspacing=1.0)
+    fig.tight_layout()
+    fig.savefig(OUT / "fig_alpha_sweep.pdf")
+    plt.close(fig)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     fig_coverage_by_regime()
     fig_dse_profile()
     fig_decomposition()
     fig_episodes()
+    fig_var_breach()
+    fig_tsfm_repair()
+    fig_alpha_sweep()
     print(f"figures -> {OUT}")
     for f in sorted(OUT.glob("*.pdf")):
         print(" ", f.name)

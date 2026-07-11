@@ -11,7 +11,7 @@ The guarantees in this section are deterministic statements about the
 calibration algorithm's realized error sequence, in the adversarial style of
 \citet{gibbs2021adaptive}: they hold for \emph{every} sequence of
 nonconformity scores, with no exchangeability, stationarity, or independence
-assumption --- in particular, arbitrary serial dependence and arbitrary
+assumption; in particular, arbitrary serial dependence and arbitrary
 cross-sectional dependence among stocks are covered. Dependence affects how
 the deterministic frequency statements below relate to population
 conditional probabilities (Remark~\ref{rem:dependence}), not the statements
@@ -51,7 +51,7 @@ gated by its membership:
 Equation~\eqref{eq:update} is online (sub)gradient descent on the pinball
 loss of the \emph{issued} threshold, with the step applied per stock-day:
 pooling means a regime's threshold advances by the number of stock-days it
-governs, which is the design's point --- on a 100-name panel a stress regime
+governs, which is the design's point: on a 100-name panel a stress regime
 accrues roughly $100\times$ the updates any single stock could provide.
 
 We make one boundedness assumption, standard in this literature and
@@ -83,8 +83,8 @@ and every score sequence,
   \;\le\; \frac{ 2B + \eta_k \bar n }{ \eta_k \, N_k }.
 \]
 Thus the realized miss frequency inside regime $k$ converges to the nominal
-budget $a$ at rate $O(1/N_k)$ in the regime's \emph{stock-day} count --- the
-pooled clock, not the single-stock clock.
+budget $a$ at rate $O(1/N_k)$ in the regime's \emph{stock-day} count, that
+is, the pooled clock rather than the single-stock clock.
 \end{proposition}
 
 \begin{proof}
@@ -150,8 +150,8 @@ this is a regime-conditional breach-frequency guarantee.
 Propositions~\ref{prop:hard}--\ref{prop:onesided} are identities about
 realized frequencies and hold pathwise: correlated stocks, volatility
 clustering, and regime persistence do not weaken them. What dependence
-\emph{does} govern is the effective information content of $N_k$ and $W_k$
---- on a day when the cross-section moves as one, $n_t$ stock-days
+\emph{does} govern is the effective information content of $N_k$ and $W_k$:
+on a day when the cross-section moves as one, $n_t$ stock-days
 contribute one effective observation, so the practical convergence clock
 lies between calendar days in regime $k$ and stock-days in regime $k$. Our
 empirical evaluation therefore reports conditional coverage directly (and
@@ -161,8 +161,8 @@ the worst-case rates above.
 
 \begin{remark}[Estimated regimes]\label{rem:estimated}
 The guarantees condition on the calibrator's own membership sequence
-$\pi_t$ --- the operationally meaningful object, since $\pi_t$ is what a
-risk desk can compute at the forecast origin --- not on a latent true
+$\pi_t$ (the operationally meaningful object, since $\pi_t$ is what a
+risk desk can compute at the forecast origin), not on a latent true
 regime $\pi_t^\ast$. Coverage conditional on the truth differs from
 coverage conditional on the estimate by at most the membership
 misalignment: for hard regimes, the miss-frequency gap in regime $k$ is
@@ -204,8 +204,8 @@ regime-weighted time over the evaluation horizon. They are not
 finite-sample conditional-probability statements for an individual day
 (impossible without distributional assumptions,
 \citealp{foygelbarber2021limits}), and they do not by themselves guarantee
-coverage inside sub-regime events shorter than the convergence scale ---
-the empirically binding case being the first days of a volatility spike
+coverage inside sub-regime events shorter than the convergence scale;
+the empirically binding case is the first days of a volatility spike
 (Section~\ref{sec:onset}), where the score distribution shifts faster than
 any tracker with bounded step size can follow.
 \end{remark}

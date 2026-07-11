@@ -40,32 +40,23 @@
 }
 
 \begin{abstract}
-Uncertainty statements attached to volatility forecasts are consumed
-conditionally --- on the bad days --- yet the methods that produce them
-are validated on average. On a survivorship-bias-free panel of the 100
-largest US stocks (2005--2025; 519{,}843 stock-days; point-in-time CRSP
-universe), we show that online conformal prediction intervals for
-next-day realized volatility are marginally valid but conditionally
-broken: intervals promised at 90\% cover 83\% of stress-regime days and
-over-cover calm ones, with the shortfall concentrated in the upper tail
-that risk management consumes; a zero-shot time-series foundation model
-(Chronos) exhibits the same failure directionally. We introduce a
-regime-conditional calibration layer that wraps any forecaster: conformal
-thresholds are maintained per market regime, estimated online; the
-calibration signal is pooled across the cross-section, giving rare
-regimes two orders of magnitude more updates than any single series
-provides; and per-regime learning rates are set by online expert
-aggregation with an issued-interval corrector, leaving no tuned
-parameters. The layer removes most of the conditional deficit (stress
-coverage 88.3\%) at no cost in average interval score (Model Confidence
-Set), delivers the best stress-day Value-at-Risk backtests among seven
-methods including GARCH-$t$ and CAViaR, repairs the foundation model's
-bands, and carries finite-sample per-regime coverage guarantees valid
-under arbitrary cross-sectional and serial dependence. One deficit
-survives everything we tried, including option-implied signals and an
-oracle given full-sample regime knowledge: coverage on the second day of
-a volatility spike. We characterize this onset window as an open problem
-for any backward-looking calibration scheme.
+Volatility forecast intervals are consumed conditionally, on the bad
+days, yet are validated on average. On a survivorship-bias-free
+point-in-time panel of the 100 largest US stocks (2005--2025; 519{,}843
+stock-days), online conformal intervals for next-day realized volatility
+are marginally valid but conditionally broken: intervals promised at
+90\% cover 83\% of stress-regime days, the shortfall concentrated in
+the upper tail. We introduce a
+regime-conditional calibration layer wrapping any forecaster: conformal
+thresholds are maintained per online-estimated regime, the
+calibration signal is pooled across the cross-section, and per-regime
+learning rates are set by online expert aggregation, with no tuned parameters. The layer removes most of the conditional deficit (stress
+coverage 88.3\%) at no average cost in interval score, delivers the best
+stress-day Value-at-Risk backtests, repairs a
+foundation model's bands, and carries finite-sample per-regime
+guarantees under arbitrary dependence. Day-two-of-spike coverage resists
+everything we tried, including oracle regimes; we pose this onset window
+as an open problem.
 \end{abstract}
 
 \begin{highlights}
@@ -78,7 +69,7 @@ for any backward-looking calibration scheme.
 \item The layer yields the best stress-day VaR backtests among seven
   methods and repairs a foundation model's miscalibrated bands.
 \item Day-2-of-spike coverage resists all conditioning, including oracle
-  regimes and option-implied signals --- an honest, quantified limit.
+  regimes and option-implied signals: an honest, quantified limit.
 \end{highlights}
 
 \begin{keyword}

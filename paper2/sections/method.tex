@@ -25,8 +25,8 @@ VIX percentile, the market realized-volatility percentile, and
 cross-sectional dispersion, all strictly backward-looking. The canonical
 estimator is transparent: $K = 4$ regimes as VIX-percentile bins with
 edges $(0.5, 0.8, 0.95)$, aligned with the evaluation slices. A soft
-alternative --- an online Gaussian HMM refit on an expanding window every
-quarter, issuing \emph{filtered} probabilities $\pi_t(k)$ --- yields the
+alternative (an online Gaussian HMM refit on an expanding window every
+quarter, issuing \emph{filtered} probabilities $\pi_t(k)$) yields the
 same conclusions (Section~\ref{sec:oracle}), so transparency costs
 nothing. An optional forward-looking \emph{acute} group, active when the
 9-day implied volatility exceeds 30-day (VIX9D/VIX $> 1$), sharpens the
@@ -54,7 +54,7 @@ and after observing outcomes takes one gradient step per \emph{stock-day}
 (Section~\ref{sec:theory}, eq.~\eqref{eq:update}): every regime's
 threshold moves proportionally to its membership and to the day's summed
 coverage error across the panel. This per-observation stepping is the
-pooling mechanism --- on a 100-name panel, the stress regime receives
+pooling mechanism: on a 100-name panel, the stress regime receives
 roughly $15{,}000$ updates over the sample where a single stock would
 provide $\sim$150. Offsets absorb residual per-stock idiosyncrasy and are
 L2-shrunk toward zero (empirically negligible;
@@ -64,13 +64,13 @@ Table~\ref{tab:ablations}).
 extreme quantiles need large steps; hand-tuning those is the kind of
 researcher degree of freedom we want to eliminate. Each regime therefore
 keeps a bank of expert thresholds, one per rate in a fixed dyadic grid,
-combined by exponential weights on pinball loss --- DtACI
+combined by exponential weights on pinball loss. This is DtACI
 \citep{gibbs2022conformal} run \emph{per regime}, with all expert updates,
 weight updates, and uniform mixing gated by $\pi_t(k)$ so that a regime
 learns only in its own (membership-weighted) time. Because a
 weight-averaged threshold can be dragged by slow experts during shifts, a
 per-regime additive corrector updates on the \emph{issued} interval's
-misses at one universal rate --- the quantile-tracking-plus-integrator
+misses at one universal rate, the quantile-tracking-plus-integrator
 structure of conformal PID control \citep{angelopoulos2023conformal}. The
 corrector, not the bank, carries the coverage guarantee
 (Remark~\ref{rem:adaptive}); the bank carries adaptivity. The full

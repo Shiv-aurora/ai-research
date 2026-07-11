@@ -14,7 +14,7 @@ systematic conditional failure precisely where uncertainty statements
 matter most. On a survivorship-bias-free panel of the 100 largest US
 stocks over 2005--2025 (519{,}843 stock-days), adaptive conformal intervals
 for next-day realized volatility achieve their promised 90\% coverage
-almost exactly --- and cover only 82.9\% of stress-regime days, while
+almost exactly, yet cover only 82.9\% of stress-regime days, while
 over-covering calm ones (Figure~\ref{fig:coverage}). The upper tail, the
 direction that maps to risk-management losses, covers 90.1\% in stress when
 95\% is promised. Validity on average is purchased by failing during
@@ -25,7 +25,7 @@ prediction band of Chronos \citep{ansari2024chronos} is not merely too
 narrow in stress but points the wrong way, missing on the upside 14.6\% of
 the time against a 10\% budget while missing only 5.7\% on the downside.
 
-We then show that most of this conditional deficit can be removed --- and
+We then show that most of this conditional deficit can be removed, and
 we are precise about the part that cannot. Our calibration layer wraps any
 point forecaster and combines three ingredients, each of which we isolate
 in ablations. First, \emph{cross-sectional pooling}: per-regime conformal
@@ -47,7 +47,7 @@ in every regime.
 
 The deficit that remains is as informative as the repair. Coverage on the
 \emph{second day} after a spike enters the stress regime stays near
-72--76\% under every conditioning scheme we tried --- finer regime
+72--76\% under every conditioning scheme we tried: finer regime
 partitions, freshness subgroups, forward-looking option-implied signals
 (VIX9D), and even a deliberately leaky ``oracle'' calibrator given
 full-sample smoothed regime memberships
@@ -59,12 +59,12 @@ finite-sample explanation.
 
 Three framing points delimit the contribution. Point-forecast accuracy is
 held fixed by design: our forecaster pool ties standard HAR and gradient
-boosting benchmarks (Table~\ref{tab:e0}), and no accuracy claim is made
---- the contribution is that the \emph{uncertainty statements} attached to
+boosting benchmarks (Table~\ref{tab:e0}), and no accuracy claim is made;
+the contribution is that the \emph{uncertainty statements} attached to
 standard forecasts become conditionally trustworthy. The guarantees we
 prove are deterministic, hold under arbitrary cross-sectional and serial
 dependence, and condition on the calibrator's own filtered regime estimate
---- the object a risk desk can actually compute --- with the gap to latent
+(the object a risk desk can actually compute), with the gap to latent
 truth quantified empirically at 0.3 percentage points. And the evaluation
 is designed against survivorship: the universe is rebuilt each January
 from CRSP point-in-time market capitalizations, so Lehman Brothers,
@@ -88,7 +88,7 @@ Wachovia, and Washington Mutual are in the panel through their deaths.
   (Section~\ref{sec:ablations}).
 \item \textbf{Foundation-model repair.} Evidence that a zero-shot TSFM's
   native uncertainty is directionally miscalibrated in crises, and that
-  the same layer repairs it --- timely, given that current TSFM
+  the same layer repairs it. This is timely, given that current TSFM
   evaluations in volatility forecasting consider point accuracy only
   \citep{brini2026forecasting}.
 \item \textbf{An honest limit.} The day-2 onset window resists every

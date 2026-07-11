@@ -4,8 +4,8 @@
 \centering
 \includegraphics{figures/fig_dse_oracle.pdf}
 \caption{Coverage by days since entering the stress regime (E6b), for the
-causal calibrators and the leaky oracle. The day-2 pit --- coverage near
-0.76--0.80 against 0.90 nominal --- survives perfect hindsight about the
+causal calibrators and the leaky oracle. The day-2 pit (coverage near
+0.76--0.80 against 0.90 nominal) survives perfect hindsight about the
 regime path: onset under-coverage is score distribution shift, not regime
 misdetection.}
 \label{fig:dse}
@@ -20,11 +20,11 @@ express: finer regime partitions ($K$ up to 5), freshness subgroups
 (splitting stress by days since entry), explicit transition regimes, and a
 forward-looking acute group driven by the option market's own term
 structure (VIX9D $>$ VIX). The acute group is genuinely useful elsewhere
---- it lifts stress \emph{upper-tail} coverage to 94.8\% against the 95\%
-target on the post-2012 sample --- but day-2 coverage does not move. The
+(it lifts stress \emph{upper-tail} coverage to 94.8\% against the 95\%
+target on the post-2012 sample), but day-2 coverage does not move. The
 oracle ablation closes the remaining escape route: a calibrator handed
-smoothed full-sample regime memberships --- which \emph{knows},
-noncausally, that the market has entered stress and will remain there ---
+smoothed full-sample regime memberships (one that \emph{knows},
+noncausally, that the market has entered stress and will remain there)
 still covers only 76\% of day-2 outcomes (Figure~\ref{fig:dse}).
 
 The mechanics are visible in the theory. A tracker with per-observation
@@ -32,16 +32,16 @@ step size $\eta$ can move its threshold by at most $\eta \, n_t$ per day;
 the day-1$\to$2 shift in the standardized score distribution during spike
 onsets exceeds that budget for any $\eta$ small enough to be stable in
 regime interiors (Remark~\ref{rem:notclaimed}). Larger steps trade
-interior coverage for onset coverage --- the adaptive aggregator, free to
+interior coverage for onset coverage; the adaptive aggregator, free to
 make that trade, declines it, which is itself evidence that the pit is not
 a tuning failure. And the option market's forward-looking prices, which do
 sharpen the general stress tail, contain no incremental day-2 signal
 either: whatever information would be needed to widen intervals fast
 enough appears not to be in the observable state at the close of day~1.
 
-We therefore report the onset window as a limit of the approach --- and,
+We therefore report the onset window as a limit of the approach (and,
 we would argue, of any backward-looking calibration scheme evaluated to
-date --- rather than obscuring it inside regime averages. Practitioners
+date), rather than obscuring it inside regime averages. Practitioners
 consuming these intervals should treat the first two days of a regime
 transition as carrying coverage materially below nominal, on the order of
 75--80\% for a 90\% band. Characterizing whether this window is
