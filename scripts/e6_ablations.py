@@ -99,10 +99,14 @@ def main() -> None:
     for label, res in pmap(_pooled_run, jobs):
         rows.append(summarize(res, state, label))
 
-    print("[per-stock] 100 single-name calibrations across cores ...",
-          flush=True)
-    parts = pmap(_single_stock_run,
-                 [(g, member4) for _, g in preds.groupby("ticker")])
+    # Per-stock arm: names need enough own history to calibrate alone (the
+    # PIT universe contains members with a single ~250-day membership year;
+    # 500 days ≈ warmup + 1.5y). This only strengthens the starvation
+    # comparison — short names are excluded from the arm they'd lose hardest.
+    groups = [g for _, g in preds.groupby("ticker") if len(g) >= 500]
+    print(f"[per-stock] {len(groups)} single-name calibrations "
+          f"(names with >=500 prediction days) across cores ...", flush=True)
+    parts = pmap(_single_stock_run, [(g, member4) for g in groups])
     rows.append(summarize(pd.concat(parts, ignore_index=True), state,
                           "per_stock"))
 

@@ -1,0 +1,36 @@
+  20/223 permnos fetched
+  40/223 permnos fetched
+  60/223 permnos fetched
+  80/223 permnos fetched
+  100/223 permnos fetched
+  120/223 permnos fetched
+  140/223 permnos fetched
+  160/223 permnos fetched
+  180/223 permnos fetched
+  200/223 permnos fetched
+  220/223 permnos fetched
+panel: 519,843 stock-days, 223 tickers, 2005-01-03 to 2025-12-31 -> /Users/shivamarora/Documents/research-final/data/processed_v2/rv_panel.parquet
+
+tickers: 223, median days: 1973
+short histories (<2500 days):
+            first       last  days
+ticker                            
+AA     2005-01-03 2005-12-30   252
+ADBE   2016-01-04 2025-12-31  2492
+ADI    2022-01-03 2025-12-31   984
+AET    2006-01-03 2018-11-28   481
+AFL    2009-01-02 2009-12-31   252
+...           ...        ...   ...
+WYE    2005-01-03 2009-10-15  1205
+XTO    2009-01-02 2010-06-25   373
+YHOO   2005-01-03 2015-12-31  1256
+YUM    2012-01-03 2012-12-31   250
+ZTS    2020-01-02 2024-12-31  1234
+
+[130 rows x 3 columns]
+
+NaN share (columns > 0):
+stock_rv_pctl    0.0505
+vix_pctl         0.0475
+mkt_rv_pctl      0.0475
+xs_dispersion    0.0002

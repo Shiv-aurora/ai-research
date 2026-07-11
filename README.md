@@ -49,7 +49,7 @@ mlruns/, data/processed/  # legacy RIVE artifacts, untouched by policy
 
 ## Data
 
-All free sources: Chicago Booth **Risk Lab** intraday realized volatilities (TAQ-based, keyed by PERMNO with recycled-ticker identity audits), **FRED** macro state variables (with silent-truncation guards), **CBOE** VIX9D/VVIX term-structure signals, yfinance OHLC returns. Universe is a provisional top-100 (2005–2025, ~510k stock-days); a CRSP point-in-time upgrade is queued for when WRDS access lands (see `NEXT_STEPS.md` §3). Column definitions: `docs/data_dictionary.md`.
+Universe: **CRSP point-in-time top-100 by market cap**, rebalanced each January 2005–2025 including later-delisted names (223 companies, 519,843 stock-days; built by `scripts/build_pit_universe.py` via the WRDS API, queries logged in `docs/wrds_queries.md`) — survivorship-bias-free by construction, identity keyed by PERMNO end-to-end. Realized volatilities: Chicago Booth **Risk Lab** (TAQ-based, fetched by PERMNO). State variables: **FRED** macro series (with silent-truncation guards) and **CBOE** VIX9D/VVIX term-structure signals. Column definitions: `docs/data_dictionary.md`.
 
 ## Engineering notes
 

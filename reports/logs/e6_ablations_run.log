@@ -1,0 +1,73 @@
+[pooled configs] 9 runs across cores ...
+marginal            0.900054
+cov_calm            0.900336
+cov_stress          0.873767
+cov_stress_upper    0.940751
+width               1.715368
+width_stress        2.258611 
+
+marginal             0.89933
+cov_calm            0.900196
+cov_stress          0.882779
+cov_stress_upper    0.939048
+width                1.70964
+width_stress        2.325842 
+
+marginal             0.89931
+cov_calm            0.899765
+cov_stress           0.88285
+cov_stress_upper    0.939119
+width               1.711211
+width_stress        2.325175 
+
+marginal            0.899201
+cov_calm            0.899985
+cov_stress           0.88285
+cov_stress_upper    0.939048
+width               1.715049
+width_stress        2.325226 
+
+marginal            0.899048
+cov_calm            0.899732
+cov_stress          0.882921
+cov_stress_upper    0.939119
+width               1.715273
+width_stress        2.324593 
+
+marginal            0.899212
+cov_calm            0.899966
+cov_stress          0.882779
+cov_stress_upper    0.939048
+width               1.714969
+width_stress        2.326179 
+
+marginal            0.899231
+cov_calm            0.900032
+cov_stress          0.883488
+cov_stress_upper    0.937132
+width               1.715213
+width_stress        2.269025 
+
+marginal            0.899239
+cov_calm            0.899971
+cov_stress          0.883063
+cov_stress_upper    0.939473
+width               1.710139
+width_stress        2.264028 
+
+marginal            0.899201
+cov_calm            0.899985
+cov_stress           0.88285
+cov_stress_upper    0.939048
+width               1.715049
+width_stress        2.325226 
+
+[per-stock] 153 single-name calibrations (names with >=500 prediction days) across cores ...
+marginal            0.880965
+cov_calm            0.884121
+cov_stress          0.799753
+cov_stress_upper    0.876027
+width               1.604803
+width_stress        1.699151 
+
+saved -> reports/e6_ablations.csv

@@ -1,0 +1,49 @@
+  crsp.msenames: 5000/117830 rows
+  crsp.msenames: 10000/117830 rows
+  crsp.msenames: 15000/117830 rows
+  crsp.msenames: 20000/117830 rows
+  crsp.msenames: 25000/117830 rows
+  crsp.msenames: 30000/117830 rows
+  crsp.msenames: 35000/117830 rows
+  crsp.msenames: 40000/117830 rows
+  crsp.msenames: 45000/117830 rows
+  crsp.msenames: 50000/117830 rows
+  crsp.msenames: 55000/117830 rows
+  crsp.msenames: 60000/117830 rows
+  crsp.msenames: 65000/117830 rows
+  crsp.msenames: 70000/117830 rows
+  crsp.msenames: 75000/117830 rows
+  crsp.msenames: 80000/117830 rows
+  crsp.msenames: 85000/117830 rows
+  crsp.msenames: 90000/117830 rows
+  crsp.msenames: 95000/117830 rows
+  crsp.msenames: 100000/117830 rows
+  crsp.msenames: 105000/117830 rows
+  crsp.msenames: 110000/117830 rows
+  crsp.msenames: 115000/117830 rows
+2005: top 100 spans $24.7B–$385.9B  (#1 GE General Electric Co)
+2006: top 100 spans $26.3B–$370.3B  (#1 GE General Electric Co)
+2007: top 100 spans $29.6B–$446.9B  (#1 XOM Exxon Mobil Corp)
+2008: top 100 spans $33.0B–$511.9B  (#1 XOM Exxon Mobil Corp)
+2009: top 100 spans $18.7B–$406.1B  (#1 XOM Exxon Mobil Corp)
+2010: top 100 spans $24.6B–$322.7B  (#1 XOM Exxon Mobil Corp)
+2011: top 100 spans $27.5B–$368.7B  (#1 XOM Exxon Mobil Corp)
+2012: top 100 spans $26.4B–$406.3B  (#1 XOM Exxon Mobil Corp)
+2013: top 100 spans $30.7B–$499.7B  (#1 AAPL Apple Inc)
+2014: top 100 spans $40.0B–$500.7B  (#1 AAPL Apple Inc)
+2015: top 100 spans $45.6B–$643.1B  (#1 AAPL Apple Inc)
+2016: top 100 spans $43.4B–$583.6B  (#1 AAPL Apple Inc)
+2017: top 100 spans $46.5B–$609.0B  (#1 AAPL Apple Inc)
+2018: top 100 spans $53.6B–$860.9B  (#1 AAPL Apple Inc)
+2019: top 100 spans $46.9B–$780.4B  (#1 MSFT Microsoft Corp)
+2020: top 100 spans $59.0B–$1287.6B  (#1 AAPL Apple Inc)
+2021: top 100 spans $69.2B–$2232.3B  (#1 AAPL Apple Inc)
+2022: top 100 spans $85.1B–$2902.4B  (#1 AAPL Apple Inc)
+2023: top 100 spans $68.3B–$2058.4B  (#1 AAPL Apple Inc)
+2024: top 100 spans $78.8B–$2976.6B  (#1 AAPL Apple Inc)
+2025: top 100 spans $86.5B–$3785.3B  (#1 AAPL Apple Inc)
+
+unique companies across 2005-2025: 223
+mean annual turnover: 10.6 names
+members with delisting events (dlstcd>=200): 42
+artifacts -> /Users/shivamarora/Documents/research-final/data/raw/wrds

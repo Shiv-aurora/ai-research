@@ -58,26 +58,33 @@ All experiments final, reproducible via `.venv/bin/python scripts/run_all.py`
 - Per-stock loops are parallelized (`src/utils/parallel.py::pmap`) — keep
   it that way; the machine is a 10-core M1 Max.
 
-## 3. Waiting on WRDS access (user applied ~2026-07-06, ETA ~10 days)
+## 3. WRDS integration — DONE 2026-07-11
 
-When access arrives, in order:
+Access restored via the WRDS REST API (token in env var `WRDS_API_TOKEN`,
+never in code/repo; client: `src/data/wrds_api.py` — READ ITS DOCSTRING,
+the API silently ignores unsupported filters and the client re-applies
+every filter in pandas as a defense).
 
-1. **Point-in-time universe.** Build "top-100 by market cap as of each
-   January, incl. later-dead names" from CRSP (msf/msenames + delist).
-   Replace `PROVISIONAL_TOP100` in `src/data/universe.py` (function
-   `get_universe` has a NotImplementedError stub for this path). Log every
-   query verbatim in `docs/wrds_queries.md` (format defined there).
-2. **Rebuild panel** (`scripts/build_rv_panel.py`) — Risk Lab fetch keyed
-   by PERMNO already; the identity audit (`scripts/audit_universe_identity.py`)
-   must pass; staleness guard in `src/data/panel.py` will catch mismatches.
-3. **Regenerate everything:** `scripts/run_all.py` (~1-2h). Diff every
-   table in `docs/RESULTS.md`; conclusions are expected to strengthen or
-   hold (calibration claims have no survivorship mechanism).
-4. **TAQ verification subset (optional, referee armor):** recompute 5-min
-   RV from raw TAQ for ~25 names × a few years using
+1. **Point-in-time universe: DONE.** `scripts/build_pit_universe.py` →
+   `data/raw/wrds/universe_pit_membership.parquet` (top-100 by permco cap
+   each January 2005-2025; 223 unique companies, 42 later delisted and
+   retained — Lehman/Wachovia/Merrill/WaMu/Fannie all in). Queries logged
+   in `docs/wrds_queries.md`. `get_universe` kind `crsp_top_marketcap_pit`
+   is live in config.
+2. **Panel rebuilt: DONE.** 519,843 stock-days, permno-keyed Risk Lab
+   fetch (`fetch_universe_permnos` — no ticker matching anywhere), annual
+   membership filter, delist-aware staleness guard. Old provisional
+   artifacts preserved as `*_provisional100.parquet`.
+3. **Everything regenerated: DONE.** Chronos re-predicted, full
+   `run_all.py` green, every table in `docs/RESULTS.md` updated to the
+   PIT numbers. Conclusions held or strengthened (E2 stress gap grew to
+   +5.2pp vs ACI; COVID aci .786 vs ours .879).
+4. **TAQ verification subset (STILL OPEN, referee armor):** recompute
+   5-min RV from raw TAQ for ~25 names × a few years using
    `src/data/rv_estimators.py` (BNHLS cleaning implemented + unit-tested);
    report median per-stock log-RV correlation vs Risk Lab (target >0.95).
-5. If WRDS does NOT come through: fallback documented in §5 item G.
+   NOTE: the REST API is impractical for bulk ticks — use WRDS Cloud or
+   the postgres `wrds` package, or accept a small REST-sized sample.
 
 ## 4. Paper writing (LAST step, after WRDS regen; skeleton may start anytime)
 
@@ -185,8 +192,9 @@ highest-leverage addition left.
 
 ## 7. Current status snapshot
 
-Phases P0–P5 complete (tasks #1–#6). P6 (theory+paper) pending. Last
-commits: adaptive rates 4afe71c, baselines+E10 fa3e48e, E9+MCS 319b967,
-E2 final 523a980, parallelization 6cd0c81, E6 7f5c5dc. Memory files for
-Claude sessions live in the user's `~/.claude` project memory; this file
-is the repo-side source of truth.
+Phases P0–P5 complete (tasks #1–#6), WRDS point-in-time integration
+complete (2026-07-11, §3). P6 (theory+paper) is the current phase and is
+UNBLOCKED — all final numbers are in `docs/RESULTS.md`. Earlier landmark
+commits: adaptive rates 4afe71c, E2 final 523a980, E6 7f5c5dc, handoff
+docs 213484f. Memory files for Claude sessions live in the user's
+`~/.claude` project memory; this file is the repo-side source of truth.

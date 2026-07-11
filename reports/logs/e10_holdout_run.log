@@ -1,0 +1,30 @@
+
+=== half_A: 96 names, 195,049 stock-days ===
+marginal            0.898414
+cov_stress          0.831818
+cov_stress_upper    0.897947
+cov_calm            0.897196
+width               1.691944
+width_stress        1.805446
+marginal            0.898669
+cov_stress          0.874524
+cov_stress_upper    0.929933
+cov_calm            0.899964
+width               1.703863
+width_stress        2.173932
+
+=== half_B: 96 names, 199,164 stock-days ===
+marginal             0.89862
+cov_stress          0.829456
+cov_stress_upper    0.899656
+cov_calm            0.896875
+width               1.687531
+width_stress        1.797488
+marginal            0.898682
+cov_stress          0.875533
+cov_stress_upper    0.932334
+cov_calm            0.899846
+width               1.699331
+width_stress        2.241748
+
+saved -> reports/e10_holdout.csv
