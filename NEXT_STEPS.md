@@ -134,10 +134,11 @@ Write LaTeX + proofs in `paper2/sections/theory.tex`:
   (ii) impossibility/lower bound for day-2 onset coverage. User wants
   strong-model effort reserved for exactly these two.
 
-**B. Oracle-regime ablation (cheap, supports the honesty remark).**
-Full-sample smoothed HMM memberships (oracle) vs our filtered ones in the
-calibrator; add row to E6. Reuse `src/regimes/online_hmm.py` (fit once on
-all data, predict smoothed probs — explicitly labeled leaky-by-design).
+**B. Oracle-regime ablation — DONE 2026-07-11.** `scripts/e6b_oracle_regimes.py`
+→ `reports/e6b_oracle_regimes.csv`: oracle smoothed HMM buys +0.3pp stress
+coverage over the causal filter; day-2 pit survives oracle regimes. Feeds
+the theory honesty remark (P6) and answers the triage referee criticism
+about real-time regime feasibility. See docs/RESULTS.md E6b.
 
 **C. Pool expansion (compute-only).** Add GRU (`src/forecasters/neural.py`,
 torch — MUST run in its own process, §6) and Chronos

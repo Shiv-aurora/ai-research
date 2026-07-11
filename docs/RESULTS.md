@@ -139,6 +139,29 @@ Paper framing: pooling repairs coverage, adaptivity removes tuning, regimes
 buy transitions + conditional balance + guarantees.
 Artifact: `reports/e6_ablations.csv`. Script: `scripts/e6_ablations.py`.
 
+## E6b — Oracle vs estimated regimes (the honesty-remark ablation)
+
+Identical pooled adaptive calibrator under three membership sources:
+
+| membership | stress cov | stress upper | day-2 cov |
+|---|---|---|---|
+| VIX bins K=4 (canonical, causal) | .8828 | .9390 | .797 |
+| online HMM, filtered (causal) | .8763 | .9291 | .755 |
+| full-sample HMM, SMOOTHED (leaky oracle) | .8793 | .9390 | .761 |
+
+Even though filtered and oracle memberships differ substantially where it
+matters (stress-day mean abs. difference in stress-prob 0.38), coverage is
+nearly identical: perfect hindsight regime knowledge buys +0.3pp stress
+coverage over the causal filter. Two paper-level implications: (1) the
+guarantee conditioning on the algorithm's own filtered state costs almost
+nothing vs latent-truth conditioning — regime-estimation error is NOT the
+binding constraint; (2) the day-2 transition pit survives even ORACLE
+regimes (.76 vs .80 for bins) — the strongest corroboration yet that onset
+under-coverage is score distribution shift, not regime misdetection.
+Transparent VIX bins remain as good as or better than both HMM variants.
+Artifacts: `reports/e6b_oracle_regimes.csv`, `reports/e6b_oracle_dse.csv`.
+Script: `scripts/e6b_oracle_regimes.py`.
+
 ## Onset / irreducibility (E2 rounds 3-4)
 
 Day-2 of a vol spike is under-covered (72-76%) by every backward-looking

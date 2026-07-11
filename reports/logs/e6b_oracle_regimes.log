@@ -1,0 +1,34 @@
+[memberships] filtered (online) + oracle (smoothed) HMM ...
+Model is not converging.  Current: 1346.677506419622 is not greater than 1346.692869421201. Delta is -0.015363001579089541
+filtered-vs-oracle stress-prob MAD: all days 0.206, stress days 0.378
+marginal            0.8992
+cov_calm            0.9000
+cov_stress          0.8828
+cov_stress_upper    0.9390
+width               1.7150
+width_stress        2.3252 
+
+marginal            0.8999
+cov_calm            0.8996
+cov_stress          0.8763
+cov_stress_upper    0.9291
+width               1.7127
+width_stress        2.2130 
+
+marginal            0.8998
+cov_calm            0.8991
+cov_stress          0.8793
+cov_stress_upper    0.9390
+width               1.7119
+width_stress        2.2756 
+
+days-since-stress-entry coverage:
+         bins_k4  hmm_filtered  hmm_oracle
+dse_bin                                   
+1         0.8549        0.8417      0.8682
+2         0.7968        0.7553      0.7606
+3         0.9186        0.8766      0.8946
+4-5       0.9107        0.9059      0.9053
+6-10      0.8853        0.8877      0.8769
+>10       0.9077        0.9158      0.9108
+saved -> reports/e6b_oracle_regimes.csv, reports/e6b_oracle_dse.csv
