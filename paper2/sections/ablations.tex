@@ -1,6 +1,6 @@
 \section{Which ingredient does what}\label{sec:ablations}
 
-The method combines pooling, regimes, offsets, and adaptivity; a reader
+The method combines pooling, regimes, and adaptivity; a reader
 should know what each buys. Figure~\ref{fig:decomposition} and
 Table~\ref{tab:ablations} decompose stress coverage across the reduction
 grid of Section~\ref{sec:method}; the honest summary is that
@@ -34,7 +34,7 @@ Per-stock (no pooling) & .800 & 1.70 \\
 Pooled, $K=1$ (no regimes) & .874 & 2.26 \\
 Pooled, $K=2$ & .883 & 2.33 \\
 Pooled, $K=4$ (canonical) & .883 & 2.33 \\
-Pooled, $K=4$, offsets off & .883 & 2.33 \\
+Pooled, $K=4$, + per-stock offsets & .883 & 2.33 \\
 Pooled, $K=4$, forecaster = HAR & .884 & 2.27 \\
 Pooled, $K=4$, forecaster = LightGBM & .883 & 2.26 \\
 \bottomrule
@@ -54,7 +54,7 @@ not primarily the further 0.9 points of average stress coverage. It is:
 75.4\% ($K = 1$) to 79.7\% ($K = 4$); (ii)~\emph{conditional VaR balance}:
 $K = 1$ inverts the 5\% VaR error profile (calm 5.3\% vs stress 3.6\%
 breaches) where $K = 4$ balances it (5.0/5.7); (iii)~the per-regime
-guarantee of Proposition~\ref{prop:soft} exists only when regimes exist;
+guarantee of Proposition~\ref{prop:adaptive} exists only when regimes exist;
 and (iv)~the forward-looking acute group of Section~\ref{sec:onset} is
 only expressible with a regime layer. One nuance runs the other way: at
 the 1\% VaR level, $K = 1$'s stress breach rate (1.2\%) is closer to

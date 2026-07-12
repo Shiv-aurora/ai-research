@@ -5,8 +5,10 @@ the implementation's update IS eq. (3),
 
 with err computed on the ISSUED threshold. These tests replay that recursion
 from the calibrator's own outputs and require exact agreement, then check
-the telescoped Proposition-2 bound. If implementation and theory ever
-drift, this fails before a referee finds it.
+the telescoped bounds: Prop. 1's fixed-rate identity (the soft-membership
+run checks the conditional identity of Section 4.4), and Prop. 2's
+adaptive-corrector bound under hard regimes. If implementation and theory
+ever drift, this fails before a referee finds it.
 """
 
 import numpy as np
@@ -93,3 +95,41 @@ def test_proposition2_bound_holds():
         # sanity: with 600 days the realized weighted frequency should be
         # near nominal, far inside the worst-case bound
         assert abs(weighted_err) / W_k < 0.05
+
+
+def test_proposition_adaptive_bound_hard_regimes():
+    """Prop. 2 (adaptive, hard regimes): per-regime avg miss excess is within
+    (2B + (eta_max + eta_corr) n_bar) / (eta_corr N_k) on the issued path."""
+    from src.conformal.panel_hierarchical import DEFAULT_ETA_GRID
+
+    preds, member_soft = _panel_and_membership(seed=2)
+    # hard memberships: argmax of the soft draw, one-hot
+    hard = np.zeros_like(member_soft.values)
+    hard[np.arange(len(hard)), member_soft.values.argmax(axis=1)] = 1.0
+    member = pd.DataFrame(hard, index=member_soft.index,
+                          columns=member_soft.columns)
+    eta_corr = 0.002
+    res = run_panel_mondrian(
+        preds, member, "pool", alpha=ALPHA, adaptive=True, eta_corr=eta_corr,
+        eta_offset=0.0, offset_l2=0.0, warmup_days=WARMUP, score_col="s",
+    )
+    a = ALPHA / 2.0
+    d = res[~res.warmup].copy()
+    d["err"] = (~d["covered_hi"]).astype(float)
+    B = float(np.abs(res["s_std"]).max())
+    n_bar = d.groupby("date").size().max()
+    eta_max = max(DEFAULT_ETA_GRID)
+
+    per_day = d.groupby("date")["err"].agg(["sum", "size"])
+    g = per_day["sum"].values - a * per_day["size"].values
+    pi = member.loc[d["date"].unique()]
+    for k in range(K):
+        mask = pi[f"regime_{k}"].values == 1.0
+        N_k = float(per_day["size"].values[mask].sum())
+        if N_k == 0:
+            continue
+        excess = float(g[mask].sum())
+        bound = (2 * B + (eta_max + eta_corr) * n_bar) / eta_corr
+        assert abs(excess) <= bound, f"regime {k}"
+        # realized per-regime miss frequency should be near nominal
+        assert abs(excess) / N_k < 0.05

@@ -33,17 +33,18 @@ thresholds are updated by every stock in the panel, so a rare regime
 accrues calibration signal at the panel rate rather than the single-stock
 rate ($\sim$100$\times$ more updates). Second, \emph{regime conditioning}:
 thresholds are maintained per market regime, estimated online from public
-state variables, with soft memberships handled natively. Third,
-\emph{self-tuning adaptation}: per-regime learning rates are selected
-online by an expert-aggregation scheme with an issued-interval corrector,
-leaving no tuned parameter anywhere in the layer. The result on the same
+state variables (transparent VIX-percentile bins in the headline
+configuration; a soft-membership HMM variant is evaluated as robustness).
+Third, \emph{self-tuning adaptation}: per-regime learning rates are
+selected online by an expert-aggregation scheme with an issued-interval
+corrector, removing the layer's hand-tuned learning rates. The result on the same
 panel: stress coverage rises from 82.9\% to 88.3\% with other regimes flat
 at nominal, average interval score statistically indistinguishable from
 the best baselines (Model Confidence Set), and stress-day 99\% VaR breach
 rates of 1.8\% against 3.1--6.7\% for GARCH-$t$, CAViaR, filtered
 historical simulation, and adaptive conformal baselines. The identical
-layer flattens the Chronos band to within 0.2 percentage points of nominal
-in every regime.
+layer, applied around the Chronos median, produces bands within 0.2
+percentage points of nominal in every regime.
 
 The deficit that remains is as informative as the repair. Coverage on the
 \emph{second day} after a spike enters the stress regime stays near

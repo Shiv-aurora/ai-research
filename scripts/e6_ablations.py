@@ -5,9 +5,10 @@ forecast unless stated. Three axes:
 
   (a) K: number of vix_pctl bin regimes, K=1..5. K=1 is the pooled
       marginal-ACI limit — the regime layer's value is the K>1 delta.
-  (b) pooling: pooled thresholds + per-stock offsets (canonical) vs pooled
-      only (offsets off) vs fully per-stock (each name calibrated alone —
-      the starvation demonstration).
+  (b) pooling: pooled thresholds only (canonical — no offsets, matching
+      the theory) vs pooled + per-stock offsets (ablation arm) vs fully
+      per-stock (each name calibrated alone — the starvation
+      demonstration).
   (c) forecaster: conformalizing HAR / LGBM / pool — the layer should
       deliver its guarantee regardless of the point model underneath.
 
@@ -89,8 +90,8 @@ def main() -> None:
 
     jobs = [(f"K={K}", preds, bin_membership(market, cuts), "pool", {})
             for K, cuts in K_CUTS.items()]
-    jobs.append(("pooled_no_offsets", preds, member4, "pool",
-                 dict(eta_offset=0.0, offset_l2=0.0)))
+    jobs.append(("pooled_with_offsets", preds, member4, "pool",
+                 dict(eta_offset=0.005, offset_l2=0.001)))
     jobs += [(f"forecaster={fc}", preds.dropna(subset=[fc]), member4, fc, {})
              for fc in ["har", "lgbm", "pool"]]
 

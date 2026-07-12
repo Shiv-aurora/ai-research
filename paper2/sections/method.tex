@@ -39,26 +39,37 @@ the estimated memberships.
 
 \paragraph{Scores.} Each stock-day produces a standardized nonconformity
 score $s_{i,t} = (y_{i,t} - m_{i,t}) / \hat\sigma_{i,t}$, where $m_{i,t}$
-is the pool forecast and $\hat\sigma_{i,t}$ a trailing MAD scale of that
-stock's own recent scores. Standardization puts all stocks on a comparable
-scale, which is what makes cross-sectional pooling meaningful.
+is the pool forecast and the scale is a strictly trailing robust estimate
+of that stock's own \emph{raw residuals}:
+$\hat\sigma_{i,t} = 1.4826 \cdot \mathrm{MAD}\bigl( y_{i,\tau} - m_{i,\tau}
+: \tau \in [t - 250, t - 1] \bigr)$, lagged one day so the scale used on
+day $t$ never includes day $t$'s residual, with a minimum history of 50
+days and zero scales treated as missing. Standardization puts all stocks
+on a comparable scale, which is what makes cross-sectional pooling
+meaningful.
 
 \paragraph{Pooled per-regime tracking.} The layer maintains per-regime
-upper and lower thresholds $q_t^{\mathrm{hi}}(k), q_t^{\mathrm{lo}}(k)$
-and per-stock offsets $\delta_i$, issues stock $i$ the interval
+upper and lower thresholds $q_t^{\mathrm{hi}}(k), q_t^{\mathrm{lo}}(k)$,
+tracked independently because volatility errors are skewed, and issues
+stock $i$ the interval $[L_{i,t}, U_{i,t}]$ with
 \[
-  m_{i,t} \pm \bigl( \textstyle\sum_k \pi_t(k)\, q_t(k) + \delta_i \bigr)
-  \hat\sigma_{i,t},
+  L_{i,t} = m_{i,t} - \Bigl( \textstyle\sum_k \pi_t(k)\,
+  q_t^{\mathrm{lo}}(k) \Bigr) \hat\sigma_{i,t},
+  \qquad
+  U_{i,t} = m_{i,t} + \Bigl( \textstyle\sum_k \pi_t(k)\,
+  q_t^{\mathrm{hi}}(k) \Bigr) \hat\sigma_{i,t}.
 \]
-and after observing outcomes takes one gradient step per \emph{stock-day}
-(Section~\ref{sec:theory}, eq.~\eqref{eq:update}): every regime's
-threshold moves proportionally to its membership and to the day's summed
-coverage error across the panel. This per-observation stepping is the
-pooling mechanism: on a 100-name panel, the stress regime receives
-roughly $15{,}000$ updates over the sample where a single stock would
-provide $\sim$150. Offsets absorb residual per-stock idiosyncrasy and are
-L2-shrunk toward zero (empirically negligible;
-Table~\ref{tab:ablations}).
+After observing outcomes, each side takes one gradient step per
+\emph{stock-day} (Section~\ref{sec:theory}, eq.~\eqref{eq:update}): every
+regime's threshold moves proportionally to its membership and to the day's
+summed coverage error across the panel. This per-observation stepping is
+the pooling mechanism: on a 100-name panel, the stress regime receives
+roughly $15{,}000$ update steps over the sample where a single stock would
+provide $\sim$150 (their informational content under cross-sectional
+dependence is discussed in Remark~\ref{rem:dependence}). The headline
+method has no per-stock parameters; a per-stock offset variant is
+evaluated as an ablation and found negligible
+(Table~\ref{tab:ablations}).
 
 \paragraph{Self-tuning rates.} Rare regimes need fast learning rates and
 extreme quantiles need large steps; hand-tuning those is the kind of
@@ -73,10 +84,15 @@ per-regime additive corrector updates on the \emph{issued} interval's
 misses at one universal rate, the quantile-tracking-plus-integrator
 structure of conformal PID control \citep{angelopoulos2023conformal}. The
 corrector, not the bank, carries the coverage guarantee
-(Remark~\ref{rem:adaptive}); the bank carries adaptivity. The full
-configuration has \emph{no tuned parameters}, and its learned effective
-rates reproduce what hand-tuning found: stress-regime rates roughly twice
-calm rates, and 1\%-tail rates roughly twice 5\%-tail rates
+(Proposition~\ref{prop:adaptive}); the bank carries adaptivity. This
+configuration removes the manual selection of regime-specific conformal
+learning rates, the choice we found most consequential and least
+principled to make by hand; its remaining constants (the rate grid, the
+aggregation rate, the mixing coefficient, and the corrector rate) are
+fixed a priori, identical across all experiments, and listed with the
+full algorithm specification. Its learned effective rates reproduce what
+hand-tuning found: stress-regime rates roughly twice calm rates, and
+1\%-tail rates roughly twice 5\%-tail rates
 (Section~\ref{sec:results}).
 
 \paragraph{One-sided head and VaR.} The risk application tracks a single

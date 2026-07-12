@@ -65,8 +65,9 @@ def run_panel_mondrian(
     forecast_col: str,
     alpha: float = 0.10,
     eta_by_regime: list[float] | float = 0.002,   # PER-OBSERVATION step
-    eta_offset: float = 0.005,
-    offset_l2: float = 0.001,
+    eta_offset: float = 0.0,   # headline method: NO per-stock offsets
+    offset_l2: float = 0.0,    # (guarantees cover the pooled component;
+                               # offsets survive only as an e6 ablation arm)
     warmup_days: int = 100,
     scale_window: int = 250,
     one_sided: bool = False,

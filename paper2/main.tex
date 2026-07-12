@@ -41,35 +41,34 @@
 
 \begin{abstract}
 Volatility forecast intervals are consumed conditionally, on the bad
-days, yet are validated on average. On a survivorship-bias-free
-point-in-time panel of the 100 largest US stocks (2005--2025; 519{,}843
-stock-days), online conformal intervals for next-day realized volatility
-are marginally valid but conditionally broken: intervals promised at
-90\% cover 83\% of stress-regime days, the shortfall concentrated in
-the upper tail. We introduce a
-regime-conditional calibration layer wrapping any forecaster: conformal
-thresholds are maintained per online-estimated regime, the
-calibration signal is pooled across the cross-section, and per-regime
-learning rates are set by online expert aggregation, with no tuned parameters. The layer removes most of the conditional deficit (stress
-coverage 88.3\%) at no average cost in interval score, delivers the best
-stress-day Value-at-Risk backtests, repairs a
-foundation model's bands, and carries finite-sample per-regime
-guarantees under arbitrary dependence. Day-two-of-spike coverage resists
-everything we tried, including oracle regimes; we pose this onset window
-as an open problem.
+days, yet are validated on average. On a point-in-time panel of the 100
+largest US stocks (2005--2025; 519{,}843 stock-days), online conformal
+intervals for next-day realized volatility are marginally valid yet
+cover only 83\% of stress-regime days at a 90\% promise, the shortfall
+concentrated in the upper tail. We introduce a forecaster-agnostic
+calibration layer: the calibration
+signal is pooled across the cross-section, thresholds are maintained per
+market regime, and per-regime learning rates are set by online expert
+aggregation. Pooling supplies most of the average repair; regime
+conditioning adds the conditional structure and finite-sample per-regime
+frequency guarantees. Stress coverage rises to 88.3\% with no detected
+cost in average interval score, and stress-day Value-at-Risk backtests
+improve on GARCH-$t$, CAViaR, and conformal baselines. Second-day-of-spike
+coverage resists every scheme we evaluate; we pose this onset window as
+an open problem.
 \end{abstract}
 
 \begin{highlights}
-\item Marginally valid conformal volatility intervals cover 83\% of
-  stress days when 90\% is promised, across 21 years and 200+ stocks.
-\item A regime-conditional, cross-sectionally pooled, self-tuning
-  conformal layer removes most of the deficit at no average cost.
-\item Finite-sample per-regime coverage guarantees hold under arbitrary
-  serial and cross-sectional dependence.
-\item The layer yields the best stress-day VaR backtests among seven
-  methods and repairs a foundation model's miscalibrated bands.
-\item Day-2-of-spike coverage resists all conditioning, including oracle
-  regimes and option-implied signals: an honest, quantified limit.
+\item Conformal volatility intervals promised 90\% cover only 83\% of
+  stress days.
+\item Pooling calibration across stocks repairs most of the stress
+  deficit.
+\item Per-regime thresholds add conditional structure and finite-sample
+  guarantees.
+\item Stress-day VaR backtests improve on GARCH-$t$, CAViaR, and
+  conformal baselines.
+\item Day-2-of-spike coverage resists every scheme evaluated: a
+  quantified limit.
 \end{highlights}
 
 \begin{keyword}
