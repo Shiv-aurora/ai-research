@@ -69,19 +69,31 @@ coverage by less than 0.1 points; standardization already does the
 cross-sectional aligning. The layer is forecaster-agnostic: conformalizing
 HAR or LightGBM alone reproduces the pool's numbers to within 0.2 points.
 
-\subsection{Oracle vs estimated regimes}\label{sec:oracle}
+\subsection{Estimated vs hindsight regimes}\label{sec:oracle}
 
 The guarantees of Section~\ref{sec:theory} condition on the calibrator's
-own filtered memberships; a referee should ask what that concedes. We run
-the identical calibrator under three membership sources: causal VIX bins,
-the causal filtered HMM, and a deliberately leaky \emph{oracle}: one
-HMM fit on the full sample issuing smoothed probabilities
-$P(\text{state}_t \mid \text{all data})$. The oracle's memberships differ
-substantially from the filtered ones exactly where it matters (mean
-absolute difference in stress probability of 0.38 on stress days), yet
-stress coverage moves from .876 to .879 and the upper tail is unchanged.
-Perfect hindsight about the regime path is worth $0.3$ points: regime
-estimation error is not the binding constraint, and the transparent bins,
-as good as either HMM, suffice. Figure~\ref{fig:dse} shows the
-same comparison along the transition axis, where it also settles a
-sharper question (next section).
+own memberships; a referee should ask what that concedes. Two distinct
+questions hide here, and we answer both. The first is algorithmic: how
+much better would the \emph{calibrator} perform if it received a better
+state sequence? We run the identical calibrator under three membership
+sources: causal VIX bins, the causal filtered HMM, and a deliberately
+noncausal hindsight benchmark, one HMM fit on the full sample issuing
+smoothed probabilities $P(\text{state}_t \mid \text{all data})$. The
+hindsight memberships differ substantially from the filtered ones exactly
+where it matters (mean absolute difference in stress probability of 0.38
+on stress days), yet stress coverage moves from .877 to .879 and the
+upper tail is essentially unchanged; the transparent causal bins match or
+beat both HMMs. The second question is evaluative: does classifying
+stress days causally flatter the \emph{evaluation}? Holding the issued
+intervals fixed (the canonical causal run) and re-slicing coverage by a
+hindsight stress definition, coverage on the size-matched hindsight tail
+is .879 against .883 on the causal slice, with the upper tail at .952
+against .95 nominal, and the days the hindsight state adds beyond the
+VIX tail are covered at .899. Neither the algorithm nor the evaluation
+is materially helped by hindsight: regime estimation error is not the
+binding constraint in this application. A smoothed HMM is of course a
+hindsight benchmark, not latent truth; what these experiments bound is
+the value of better regime \emph{information}, not of a different regime
+\emph{concept}. Figure~\ref{fig:dse} shows the algorithmic comparison
+along the transition axis, where it also settles a sharper question
+(next section).

@@ -186,6 +186,19 @@ Transparent VIX bins remain as good as or better than both HMM variants.
 Artifacts: `reports/e6b_oracle_regimes.csv`, `reports/e6b_oracle_dse.csv`.
 Script: `scripts/e6b_oracle_regimes.py`.
 
+## E6d — Fixed intervals, reclassified evaluation (conditioning gap)
+
+Holding the canonical causal run's ISSUED intervals fixed, re-slice
+coverage by hindsight stress definitions (full-sample smoothed HMM):
+causal VIX tail .8828/.9390 (14,093 sd); hindsight HMM state
+.8972/.9485 (119,058 sd — much broader state); size-matched hindsight
+tail .8792/.9518 (9,863 sd); days in hindsight-stress but not VIX-tail
+covered at .8992. Conclusion: neither the algorithm (E6b) nor the
+evaluation slicing (E6d) is materially helped by hindsight — the
+conditioning gap is ~0.4pp two-sided, zero in the upper tail.
+Artifact: `reports/e6d_reclassified_eval.csv`.
+Script: `scripts/e6d_reclassified_eval.py`.
+
 ## Onset / irreducibility (E2 rounds 3-4)
 
 Day-2 of a vol spike is under-covered (73-79%) by every backward-looking
