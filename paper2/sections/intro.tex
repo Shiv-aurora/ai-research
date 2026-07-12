@@ -29,9 +29,12 @@ We then show that most of this conditional deficit can be removed, and
 we are precise about the part that cannot. Our calibration layer wraps any
 point forecaster and combines three ingredients, each of which we isolate
 in ablations. First, \emph{cross-sectional pooling}: per-regime conformal
-thresholds are updated by every stock in the panel, so a rare regime
-accrues calibration signal at the panel rate rather than the single-stock
-rate ($\sim$100$\times$ more updates). Second, \emph{regime conditioning}:
+thresholds are updated by every stock in the panel, so a rare regime's
+effective daily learning rate scales with the panel size rather than
+with a single series (a mechanism we identify precisely in
+Section~\ref{sec:ablations}: under the panel's strong cross-sectional
+dependence, pooling operates through this rate scaling, supplied
+automatically, rather than through information aggregation). Second, \emph{regime conditioning}:
 thresholds are maintained per market regime, estimated online from public
 state variables (transparent VIX-percentile bins in the headline
 configuration; a soft-membership HMM variant is evaluated as robustness).

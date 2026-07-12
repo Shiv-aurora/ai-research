@@ -163,6 +163,31 @@ Paper framing: pooling repairs coverage, adaptivity removes tuning, regimes
 buy transitions + conditional balance + guarantees.
 Artifact: `reports/e6_ablations.csv`. Script: `scripts/e6_ablations.py`.
 
+## E13 — Pooling-mechanism identification (sum vs average vs rate)
+
+Fixed-rate 2x2 {pooled, per-stock} x {fast ~0.2/day, slow ~0.002/day}
+plus averaged-error arm (all K=4 bins, no adaptivity, no offsets):
+
+| arm | stress cov | marginal |
+|---|---|---|
+| pooled summed (fast) | .8405 | .8955 |
+| pooled averaged (fast) | .8431 | .8956 |
+| pooled rate/100 (slow) | .7704 | .8655 |
+| per-stock standard (slow) | .7699 | .8582 |
+| per-stock rate x100 (fast) | .8396 | .8951 |
+
+Findings: (1) sum-vs-average is pure rescaling; (2) the average-coverage
+channel is EFFECTIVE DAILY STEP, not cross-sectional information (slow
+pooled == slow per-stock; rate-matched per-stock == pooled) — consistent
+with heavy cross-sectional dependence; (3) that speed needs eta=0.2/obs
+per stock (100x off-grid; the per-stock ADAPTIVE arm free to choose
+within the standard grid lands at .800). Pooling = automatic panel-scaled
+rate inside a standard spec + tighter per-stock coverage distribution.
+Paper: "What pooling actually is" + tab:mechanism in ablations.
+Artifact: `reports/e13_pooling_mechanism.csv`.
+Script: `scripts/e13_pooling_mechanism.py` (average_errors flag in
+panel_hierarchical.py, fixed-rate path only).
+
 ## E6b — Oracle vs estimated regimes (the honesty-remark ablation)
 
 Identical pooled adaptive calibrator under three membership sources:

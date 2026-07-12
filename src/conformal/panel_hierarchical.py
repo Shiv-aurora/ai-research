@@ -77,6 +77,7 @@ def run_panel_mondrian(
     meta_eta: float = 5.0,
     mix_sigma: float = 0.01,
     eta_corr: float = 0.002,
+    average_errors: bool = False,   # fixed-rate path only (e13 ablation)
 ) -> pd.DataFrame:
     """Pooled panel calibrator over a walk-forward predictions frame.
 
@@ -201,9 +202,12 @@ def run_panel_mondrian(
                 Q_lo, LW_lo = _bank_step(-s, Q_lo, LW_lo)
                 c_lo += eta_corr * pi * ((~cov_lo).sum() - a_side * n)
         else:
+            # average_errors=True divides the summed excess by n (a per-DAY
+            # step on the mean error) — the e13 mechanism-identification arm
+            denom = n if average_errors else 1
             if not one_sided:
-                q_lo += eta * pi * ((~cov_lo).sum() - a_side * n)
-            q_hi += eta * pi * ((~cov_hi).sum() - a_side * n)
+                q_lo += eta * pi * ((~cov_lo).sum() - a_side * n) / denom
+            q_hi += eta * pi * ((~cov_hi).sum() - a_side * n) / denom
 
         # per-stock offsets: own miss on either side, shrunk to zero
         own_err = ((~cov_lo).astype(float) + (~cov_hi).astype(float)) / 2.0

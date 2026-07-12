@@ -49,6 +49,51 @@ marginal tracker ($K = 1$) reaches 87.5\%. This ordering is worth stating
 plainly because it is not the usual sales pitch: the cross-section, not
 the regime label, supplies most of the raw coverage repair.
 
+\paragraph{What pooling actually is.} Because the pooled update sums
+errors over $\sim$100 stocks, it confounds two channels: sharing one
+threshold across the cross-section, and mechanically moving
+$\sim$100$\times$ further per day. Table~\ref{tab:mechanism} separates
+them with fixed-rate arms in a $2 \times 2$ over \{pooled, per-stock\}
+$\times$ \{fast, slow\} effective daily rate, plus an averaged-error
+arm. Three findings. First, summing versus averaging the cross-sectional
+error is pure rescaling (stress coverage .841 vs .843). Second, the
+average-coverage channel is the \emph{effective daily step}: a slow
+pooled tracker fails exactly like a slow per-stock tracker (.770 vs
+.770), and a per-stock tracker granted the pooled tracker's daily speed
+matches its average stress coverage (.840 vs .841), consistent with the
+strong cross-sectional dependence anticipated in
+Remark~\ref{rem:dependence}: one hundred correlated stock-days do not
+carry one hundred days of information. Third, that speed is not
+practically reachable per stock: it requires a per-observation rate of
+$0.2$, two orders of magnitude beyond the standard grid, and the
+per-stock arm run with the same adaptive aggregator as the headline
+method, free to choose any rate in the grid, lands at 80.0\%. Pooling's
+operative contribution is that per-observation stepping supplies the
+panel-scaled rate automatically, inside a standard specification; the
+shared threshold additionally tightens the cross-sectional coverage
+distribution (Table~\ref{tab:perstock}).
+
+\begin{table}[t]
+\centering
+\caption{Pooling-mechanism identification (E13). All arms fixed-rate
+(no adaptivity), $K = 4$ bins, full panel. ``Fast'' arms move an
+effective $\approx 0.2$ per day (the pooled tracker's speed); ``slow''
+arms $\approx 0.002$.}
+\label{tab:mechanism}
+\small
+\begin{tabular}{lccc}
+\toprule
+Arm & Stress coverage & Marginal & Width \\
+\midrule
+Pooled, summed errors (fast) & .841 & .896 & 1.67 \\
+Pooled, averaged errors (fast) & .843 & .896 & 1.67 \\
+Pooled, rate $/\,100$ (slow) & .770 & .866 & 1.49 \\
+Per-stock, standard rate (slow) & .770 & .858 & 1.52 \\
+Per-stock, rate $\times\,100$ (fast) & .840 & .895 & 1.70 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \paragraph{Regimes buy the conditional structure.} What $K > 1$ adds is
 not primarily the further 0.8 points of average stress coverage. It is:
 (i)~\emph{transition coverage}: day-2-of-stress coverage rises from
