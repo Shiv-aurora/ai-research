@@ -38,7 +38,7 @@ of the conditional deficit while holding other regimes at nominal.}
 \label{fig:coverage}
 \end{figure}
 
-Table~\ref{tab:main} is the paper's central comparison: seven methods on
+Table~\ref{tab:main} is the paper's central comparison: eight methods on
 the identical common sample. The baselines span the online conformal
 family (ACI, DtACI, SF-OGD), a classical direct-quantile model (HAR
 quantile regression), and a similarity-weighted conformal method
@@ -104,21 +104,28 @@ DtACI & .899 & .897 & .836 & .906 & 1.70 & 1.87 \\
 SF-OGD & .899 & .898 & .840 & .910 & 1.73 & 1.91 \\
 HAR-QREG & .890 & .886 & .815 & .848 & 1.65 & 1.71 \\
 KNN-state & .894 & .892 & .829 & .908 & 1.67 & 1.84 \\
+Pooled, $K=1$ (no regimes) & .900 & .901 & .873 & .941 & 1.73 & 2.27 \\
 RC (hand-tuned) & .898 & .899 & \textbf{.882} & \textbf{.941} & 1.70 & 2.25 \\
 RC (adaptive) & .899 & .900 & \textbf{.881} & \textbf{.940} & 1.73 & 2.34 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Three readings of Table~\ref{tab:main} matter. First, the repair is a
+Four readings of Table~\ref{tab:main} matter. First, pooling without
+regimes already does most of the average work: the pooled $K = 1$ row
+reaches 87.3\% stress coverage, and the regime layer's further average
+contribution is $+0.8$ points (not significant under date clustering,
+$t = 0.6$); what regimes buy instead is conditional structure,
+quantified in Section~\ref{sec:ablations}. Second, the repair is a
 \emph{reallocation}, not an inflation: RC average width matches ACI (1.73
 vs 1.70) because width moves into stress ($+$30\%) and out of regimes
-where baselines over-cover. Second, the reallocation is free by the
-standard economic metric: a Model Confidence Set \citep{hansen2011model}
+where baselines over-cover. Third, the reallocation is not detectably
+costly by the standard efficiency metric of the interval-forecasting
+literature: a Model Confidence Set \citep{hansen2011model}
 over daily cross-sectional mean interval scores \citep{winkler1972decision}
 retains both RC variants among the undominated set (RC hand-tuned has the
-lowest mean loss) and eliminates SF-OGD ($p < .001$). Conditional validity
-costs nothing in average interval score. Third, similarity weighting
+lowest mean loss) and eliminates SF-OGD ($p < .001$); we do not detect
+inferior average interval-score performance. Fourth, similarity weighting
 without a coverage feedback loop does not solve the problem: KNN-state
 improves on ACI in stress by only 0.1 points. Selecting similar days is
 not the same as tracking a coverage target within a regime, which is why our
@@ -128,7 +135,7 @@ pooling operates inside the tracking loop.
 
 The adaptive configuration replaces every hand-chosen learning rate with
 per-regime expert aggregation plus the issued-interval corrector
-(Section~\ref{sec:method}). With zero tuned parameters it ties the
+(Section~\ref{sec:method}). With no hand-tuned learning rates it ties the
 hand-tuned stress coverage (88.1 vs 88.2), improves calm/normal coverage
 to 90.0, and costs 2\% average width. Its learned effective rates
 recover, online, both regularities that manual tuning had discovered:

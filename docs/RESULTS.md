@@ -62,7 +62,12 @@ Seven methods, common 269,705 stock-day sample, alpha=0.10:
 | har_qreg | .8899 | .8147 | .8484 | 1.645 | 1.708 |
 | knn_state | .8941 | .8294 | .9081 | 1.667 | 1.837 |
 | rc_hand | .8976 | **.8818** | **.9405** | 1.696 | 2.251 |
-| rc_adaptive | .8992 | **.8812** | **.9399** | 1.726 | 2.336 |
+| rc_adaptive | .8992 | **.8812** | **.9399** | 1.726 | 2.337 |
+| pooled_k1 | .9002 | .8731 | .9414 | 1.728 | 2.268 |
+
+pooled_k1 (K=1, no regimes) now sits IN the main table: regimes' further
+average stress contribution is +0.8pp (t=0.63, p=.53 clustered — not
+significant); regimes' real contributions are conditional (E6/E6c).
 
 Only the regime-conditional methods hold stress coverage; they do it by
 reallocating width INTO stress (+25%) while staying flat elsewhere.

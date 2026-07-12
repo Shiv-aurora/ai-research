@@ -123,6 +123,10 @@ def main() -> None:
     print("[3/3] rc_hand + rc_adaptive ...")
     bounds["rc_hand"] = panel_bounds(preds, member, eta_by_regime=ETAS_HAND)
     bounds["rc_adaptive"] = panel_bounds(preds, member, adaptive=True)
+    # pooled marginal baseline (K=1): gives the per-stock conformal
+    # baselines' closest pooled counterpart a seat in the MAIN table
+    member1 = pd.DataFrame(1.0, index=member.index, columns=["regime_0"])
+    bounds["pooled_k1"] = panel_bounds(preds, member1, adaptive=True)
 
     # common evaluation sample: (ticker, date) present & non-warm everywhere
     keys, flow = None, []
