@@ -68,7 +68,16 @@ The stress gap vs the best marginal baseline is +4.1pp (vs sfogd) to
 interval scores eliminates sfogd (p=.000) and keeps the rest, rc_hand with
 the best mean loss: conditional validity costs nothing in average interval
 score.
-Artifacts: `reports/e2_full_summary.csv`, `reports/e2_full_mcs.csv`.
+Date-clustered inference (daily cross-sectional means, Newey-West over the
+daily series): stress coverage rc_adaptive .880 (se .019) vs aci .830
+(se .026); paired stress-coverage difference vs rc_adaptive is significant
+at 1% against every baseline (aci +5.05pp t=3.05 p=.002; dtaci t=2.78;
+sfogd t=2.63; har_qreg t=2.71; knn t=2.77). Marginal differences among
+conformal methods are ~0 (|t|<0.5), as marginal validity predicts.
+rc_hand vs rc_adaptive stress difference is noise (p=.83).
+
+Artifacts: `reports/e2_full_summary.csv`, `reports/e2_full_mcs.csv`,
+`reports/e2_clustered_se.csv`.
 Script: `scripts/e2_full.py`.
 
 ## E3 — VaR application (Table 3)

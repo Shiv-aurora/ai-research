@@ -48,7 +48,16 @@ within half a point of 90\%; every baseline's stress coverage sits between
 81.5\% and 84.0\%. The two regime-conditional variants (hand-tuned
 rates and the zero-tuning adaptive configuration) reach 88.1--88.2\%,
 with the stress upper tail at 94.0\% against 95\% nominal versus
-84.8--91.0\% for the baselines.
+84.8--91.0\% for the baselines. These differences carry real
+uncertainty, and we quantify it in the way the dependence structure
+demands: daily cross-sectional means with Newey--West standard errors
+over the resulting series (clustering by date). Stress coverage is
+$.881 \pm .019$ for RC against $.830 \pm .026$ for ACI; the paired
+stress-coverage difference is $+5.1$ points against ACI
+($t = 3.05$, $p = .002$) and significant at the 1\% level against every
+baseline, while marginal coverage differences among the conformal
+methods are statistically zero ($|t| < 0.5$), exactly as marginal
+validity predicts.
 
 \begin{table}[t]
 \centering

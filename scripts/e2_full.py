@@ -29,6 +29,7 @@ from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.conformal.sfogd import run_sfogd
 from src.conformal.similarity import run_knn_state_conformal
 from src.eval.coverage import coverage_by_state, marginal_coverage
+from src.eval.dm_hac import dm_test, hac_mean_se
 from src.eval.mcs import interval_score, mcs
 from src.forecasters.quantile_baselines import har_qreg
 from src.utils.config import PROJECT_ROOT, load_config
@@ -130,7 +131,7 @@ def main() -> None:
         keys = k if keys is None else keys.merge(k, on=["ticker", "date"])
     print(f"common sample: {len(keys):,} stock-days")
 
-    rows, daily_is = [], {}
+    rows, daily_is, cov_frames = [], {}, {}
     for name, b in bounds.items():
         d = b.merge(keys, on=["ticker", "date"])
         d = d.merge(state, on=["ticker", "date"], how="left")
@@ -153,6 +154,7 @@ def main() -> None:
         d["is_"] = interval_score(d.target.values, d.lo.values, d.hi.values,
                                   ALPHA)
         daily_is[name] = d.groupby("date")["is_"].mean()
+        cov_frames[name] = d[["ticker", "date", "vix_pctl", "covered"]]
 
     summary = pd.DataFrame(rows).set_index("method")
     print("\n=== E2 main table (alpha=0.10, common sample) ===")
@@ -163,10 +165,38 @@ def main() -> None:
     print("\n=== MCS over daily interval scores ===")
     print(m.round(4).to_string())
 
+    # date-clustered inference: HAC (Newey-West over daily means) SEs for
+    # each method's coverage, plus paired coverage-difference tests of
+    # rc_adaptive against every baseline (clustering removes the
+    # cross-sectional dependence that raw stock-day counts would ignore)
+    sig_rows = []
+    ours = cov_frames["rc_adaptive"]
+    for name, d in cov_frames.items():
+        for slice_name, mask in [("marginal", d["vix_pctl"].notna()),
+                                 ("stress", d["vix_pctl"] > 0.95)]:
+            s = d.loc[mask]
+            st = hac_mean_se(s["covered"].astype(float), s["date"])
+            row = {"method": name, "slice": slice_name,
+                   "coverage": st["mean"], "se": st["se"],
+                   "n_dates": st["n_dates"]}
+            if name != "rc_adaptive":
+                pair = s.merge(ours, on=["ticker", "date"],
+                               suffixes=("_b", "_a"))
+                dm = dm_test(pair["covered_a"].astype(float),
+                             pair["covered_b"].astype(float), pair["date"])
+                row.update({"diff_vs_rc": dm["mean_diff"],
+                            "t_vs_rc": dm["dm"], "p_vs_rc": dm["p"]})
+            sig_rows.append(row)
+    sig = pd.DataFrame(sig_rows)
+    print("\n=== Date-clustered coverage inference ===")
+    print(sig.round(4).to_string(index=False))
+
     out = PROJECT_ROOT / "reports"
     summary.to_csv(out / "e2_full_summary.csv")
     m.to_csv(out / "e2_full_mcs.csv")
-    print(f"\nsaved -> reports/e2_full_summary.csv, reports/e2_full_mcs.csv")
+    sig.to_csv(out / "e2_clustered_se.csv", index=False)
+    print("\nsaved -> reports/e2_full_summary.csv, reports/e2_full_mcs.csv,"
+          " reports/e2_clustered_se.csv")
 
 
 if __name__ == "__main__":
