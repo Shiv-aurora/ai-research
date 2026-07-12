@@ -1,0 +1,11 @@
+stage,stock_days
+full panel 2005-2025,519843
+with pool forecast and target,394213
+usable by aci,375072
+usable by dtaci,375072
+usable by sfogd,375072
+usable by har_qreg,269705
+usable by knn_state,365569
+usable by rc_hand,365569
+usable by rc_adaptive,365569
+common sample (intersection),269705

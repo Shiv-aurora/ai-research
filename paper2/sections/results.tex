@@ -59,6 +59,35 @@ baseline, while marginal coverage differences among the conformal
 methods are statistically zero ($|t| < 0.5$), exactly as marginal
 validity predicts.
 
+Because the guarantee is panel-level (Remark~\ref{rem:panel}), a pooled
+threshold could in principle hide stock-level failures behind a valid
+regime average. Table~\ref{tab:perstock} shows it does the opposite:
+pooling lifts the \emph{entire} cross-sectional distribution of
+stock-level stress coverage. The median stock moves from 83.9\% to
+88.0\%, the worst decile from 78.0\% to 84.6\%, and the share of stocks
+below 85\% stress coverage falls from 70\% to 14\%.
+
+\begin{table}[t]
+\centering
+\caption{Per-stock coverage distribution (E2), common sample, stocks
+with at least 25 stress observations ($n = 107$; marginal rows use all
+136 stocks). Quantiles of realized per-stock coverage of nominal 90\%
+intervals.}
+\label{tab:perstock}
+\small
+\begin{tabular}{llccccc}
+\toprule
+ & & q05 & q10 & Median & q75 & Share $<$ .85 \\
+\midrule
+Marginal & ACI & .885 & .891 & .898 & .900 & .00 \\
+ & RC (adaptive) & .883 & .885 & .899 & .906 & .00 \\
+\addlinespace
+Stress & ACI & .757 & .780 & .839 & .859 & .70 \\
+ & RC (adaptive) & \textbf{.834} & \textbf{.846} & \textbf{.880} & \textbf{.900} & \textbf{.14} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \begin{table}[t]
 \centering
 \caption{Main comparison (E2): coverage of nominal 90\% intervals and
@@ -135,21 +164,26 @@ profile is 5.0/5.7 (Section~\ref{sec:ablations}).
 \begin{table}[t]
 \centering
 \caption{Next-day VaR backtests (E3). Stress-day breach rates against
-nominal 5\% and 1\%; DQ pass is the share of stocks passing the
-dynamic-quantile test at the 99\% level.}
+nominal budgets of 5\% and 1\%; the last three columns are the shares
+of stocks whose 99\% VaR sequence passes the Kupiec unconditional
+coverage, Christoffersen conditional coverage, and Engle--Manganelli
+dynamic-quantile tests, each at the 5\% significance level.}
 \label{tab:var}
 \small
-\begin{tabular}{lccc}
+\begin{tabular}{lccccc}
 \toprule
- & 95\% stress breach & 99\% stress breach & 99\% DQ pass \\
+ & \multicolumn{2}{c}{Stress breach rate} &
+   \multicolumn{3}{c}{99\% VaR pass shares} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6}
+ & 95\% VaR & 99\% VaR & Kupiec & Christof. & DQ \\
 \midrule
-Normal (Gaussian) & 12.5\% & 6.7\% & .03 \\
-FHS & 9.0\% & 2.7\% & .61 \\
-GARCH-$t$ & 11.9\% & 4.1\% & .42 \\
-CAViaR & 12.6\% & 5.4\% & .35 \\
-ACI & 8.6\% & 3.1\% & .48 \\
-RC (hand-tuned) & 5.5\% & 1.6\% & .70 \\
-RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.73} \\
+Normal (Gaussian) & 12.5\% & 6.7\% & .05 & .79 & .03 \\
+FHS & 9.0\% & 2.7\% & .88 & .89 & .61 \\
+GARCH-$t$ & 11.9\% & 4.1\% & .56 & .89 & .42 \\
+CAViaR & 12.6\% & 5.4\% & .52 & .81 & .35 \\
+ACI & 8.6\% & 3.1\% & .60 & .83 & .48 \\
+RC (hand-tuned) & 5.5\% & 1.6\% & .83 & \textbf{.93} & .70 \\
+RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.89} & .92 & \textbf{.73} \\
 \bottomrule
 \end{tabular}
 \end{table}

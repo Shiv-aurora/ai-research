@@ -81,8 +81,17 @@ sfogd t=2.63; har_qreg t=2.71; knn t=2.77). Marginal differences among
 conformal methods are ~0 (|t|<0.5), as marginal validity predicts.
 rc_hand vs rc_adaptive stress difference is noise (p=.83).
 
+Sample flow (519,843 -> 269,705): 394,213 with forecast+target; 375,072
+non-warm conformal; binding constraint is HAR-QREG's 800-day training
+minimum (its usable set IS the common sample); rc methods usable on
+365,569. Per-stock coverage distribution (>=25 stress obs, 107 stocks):
+median stock stress coverage aci .839 -> rc .880; q10 .780 -> .846;
+share of stocks below 85% stress coverage .70 -> .14 — pooling lifts the
+whole cross-section, not just the average.
+
 Artifacts: `reports/e2_full_summary.csv`, `reports/e2_full_mcs.csv`,
-`reports/e2_clustered_se.csv`.
+`reports/e2_clustered_se.csv`, `reports/e2_sample_flow.csv`,
+`reports/e2_per_stock_coverage.csv`.
 Script: `scripts/e2_full.py`.
 
 ## E3 — VaR application (Table 3)

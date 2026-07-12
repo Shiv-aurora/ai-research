@@ -125,11 +125,18 @@ def main() -> None:
     bounds["rc_adaptive"] = panel_bounds(preds, member, adaptive=True)
 
     # common evaluation sample: (ticker, date) present & non-warm everywhere
-    keys = None
+    keys, flow = None, []
+    flow.append(("full panel 2005-2025", len(panel)))
+    flow.append(("with pool forecast and target",
+                 int(preds.dropna(subset=["target", "pool"]).shape[0])))
     for name, b in bounds.items():
         k = b.loc[~b["warm"] & b["lo"].notna(), ["ticker", "date"]]
+        flow.append((f"usable by {name}", len(k)))
         keys = k if keys is None else keys.merge(k, on=["ticker", "date"])
+    flow.append(("common sample (intersection)", len(keys)))
+    sample_flow = pd.DataFrame(flow, columns=["stage", "stock_days"])
     print(f"common sample: {len(keys):,} stock-days")
+    print(sample_flow.to_string(index=False))
 
     rows, daily_is, cov_frames = [], {}, {}
     for name, b in bounds.items():
@@ -191,12 +198,36 @@ def main() -> None:
     print("\n=== Date-clustered coverage inference ===")
     print(sig.round(4).to_string(index=False))
 
+    # per-stock coverage distribution (pooling is panel-level; show the
+    # cross-sectional dispersion a pooled threshold leaves behind)
+    ps_rows = []
+    for name in ["aci", "rc_adaptive"]:
+        d = cov_frames[name]
+        for slice_name, sub in [("marginal", d),
+                                ("stress", d[d["vix_pctl"] > 0.95])]:
+            per = sub.groupby("ticker")["covered"].agg(["mean", "size"])
+            per = per[per["size"] >= 25]     # need enough obs per stock
+            qs = per["mean"].quantile([0.05, 0.10, 0.25, 0.50, 0.75])
+            ps_rows.append({
+                "method": name, "slice": slice_name,
+                "n_stocks": len(per),
+                "q05": qs[0.05], "q10": qs[0.10], "q25": qs[0.25],
+                "median": qs[0.50], "q75": qs[0.75],
+                "share_below_85": float((per["mean"] < 0.85).mean()),
+            })
+    per_stock = pd.DataFrame(ps_rows)
+    print("\n=== Per-stock coverage distribution ===")
+    print(per_stock.round(4).to_string(index=False))
+
     out = PROJECT_ROOT / "reports"
     summary.to_csv(out / "e2_full_summary.csv")
     m.to_csv(out / "e2_full_mcs.csv")
     sig.to_csv(out / "e2_clustered_se.csv", index=False)
+    sample_flow.to_csv(out / "e2_sample_flow.csv", index=False)
+    per_stock.to_csv(out / "e2_per_stock_coverage.csv", index=False)
     print("\nsaved -> reports/e2_full_summary.csv, reports/e2_full_mcs.csv,"
-          " reports/e2_clustered_se.csv")
+          " reports/e2_clustered_se.csv, reports/e2_sample_flow.csv,"
+          " reports/e2_per_stock_coverage.csv")
 
 
 if __name__ == "__main__":

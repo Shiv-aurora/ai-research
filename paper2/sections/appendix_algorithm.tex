@@ -1,0 +1,109 @@
+% Appendix A: complete specification of the headline calibrator.
+% Every constant here matches src/conformal/panel_hierarchical.py; the
+% exact-replay tests in tests/test_theory_identity.py enforce agreement.
+
+\appendix
+
+\section{Complete algorithm specification}\label{app:algorithm}
+
+This appendix specifies the headline calibrator exactly as run, with
+every constant. The same constants are used in every experiment in the
+paper; none is tuned per dataset, per period, or per result. The
+reference implementation and an exact-replay test that reproduces the
+recursion below from the calibrator's outputs at $10^{-10}$ tolerance
+accompany the replication package.
+
+\paragraph{Fixed constants.} Nominal level $\alpha = 0.10$ two-sided
+unless stated ($a = \alpha/2$ per side; the one-sided head uses
+$a = \alpha$); warmup $T_0 = 100$ trading days; score scale window
+$w = 250$ days with minimum history 50 days; regime count $K = 4$ with
+VIX-percentile bin edges $(0.5, 0.8, 0.95)$ on a trailing 750-day
+window; expert rate grid $\mathcal{G} = (0.0005, 0.001, 0.002, 0.004,
+0.008, 0.016, 0.032, 0.064)$, a dyadic ladder with $E = 8$ elements;
+aggregation rate $\lambda = 5.0$; uniform-mixing coefficient
+$\sigma_{\mathrm{mix}} = 0.01$; corrector rate
+$\eta_{\mathrm{corr}} = 0.002$. All rates are per stock-day
+(per-observation steps).
+
+\paragraph{Scores and scale.} For stock $i$ with point forecast
+$m_{i,t}$ and outcome $y_{i,t}$, the residual is
+$r_{i,t} = y_{i,t} - m_{i,t}$ and the scale is the lagged trailing
+robust estimate
+\[
+  \hat\sigma_{i,t} \;=\; 1.4826 \cdot \operatorname{median}_{\tau \in
+  [t-w,\, t-1]} \bigl| r_{i,\tau} -
+  \operatorname{median}_{[t-w,\,t-1]} r_{i,\cdot} \bigr| ,
+\]
+computed over the most recent $w$ residuals, requiring at least 50, and
+treated as missing when zero. The score is
+$s_{i,t} = r_{i,t} / \hat\sigma_{i,t}$; stock-days with missing scores
+are excluded. The upper side tracks $s_{i,t}$ and the lower side tracks
+$-s_{i,t}$ with identical, independent machinery; we write one side.
+
+\paragraph{Membership.} $\pi_t \in \{0,1\}^K$ is the one-hot VIX bin of
+day $t$ (computed from information through the prior close). If the
+state variable is unavailable, $\pi_t$ falls back to uniform $1/K$; this
+does not occur in the evaluation window.
+
+\paragraph{Initialization.} Let $\mathcal{W}$ be the first $T_0$ days.
+All expert thresholds initialize at the empirical $(1-a)$-quantile of
+warmup scores, $Q_1(k, j) = \widehat{F}^{-1}_{\mathcal{W}}(1 - a)$ for
+all $k, j$; log-weights $L_1(k, j) = 0$; correctors $c_1(k) = 0$. No
+predictions during $\mathcal{W}$ enter any reported result.
+
+\paragraph{Daily recursion.} On day $t$ with active regime $k_t$
+(the $k$ with $\pi_t(k) = 1$), stocks $\mathcal{I}_t$, $n_t =
+|\mathcal{I}_t|$, and $\tau = 1 - a$:
+\begin{enumerate}
+\item \emph{Issue.} Normalized weights $w_t(k, j) \propto \exp L_t(k,
+j)$. Issued threshold $\bar q_t = \sum_j w_t(k_t, j)\, Q_t(k_t, j) +
+c_t(k_t)$. Stock $i$ receives the upper bound $m_{i,t} + \bar
+q_t\,\hat\sigma_{i,t}$ (lower bound analogously from the lower-side
+tracker).
+\item \emph{Observe} scores $s_{i,t}$, $i \in \mathcal{I}_t$.
+\item \emph{Expert updates} (own-threshold errors), for every $j$ and
+$k = k_t$ only:
+\[
+  Q_{t+1}(k, j) = Q_t(k, j) + \eta_j \Bigl( \textstyle\sum_{i}
+  \mathbf{1}\{ s_{i,t} > Q_t(k, j) \} - a\, n_t \Bigr).
+\]
+\item \emph{Weight updates} on mean pinball loss
+$\ell_t(j) = n_t^{-1} \sum_i \rho_\tau\bigl( s_{i,t} - Q_t(k_t, j)
+\bigr)$ with $\rho_\tau(u) = u(\tau - \mathbf{1}\{u < 0\})$:
+\[
+  L_{t+1}(k_t, j) = L_t(k_t, j) - \lambda\, \ell_t(j),
+\]
+followed by membership-gated uniform mixing on the probability scale,
+$w \leftarrow (1 - \sigma_{\mathrm{mix}})\, w +
+\sigma_{\mathrm{mix}} / E$, stored back as log-weights. Mixing is gated
+by $\pi_t$ so a rare regime's weights evolve only in its own regime
+time.
+\item \emph{Corrector update} (issued-threshold errors):
+\[
+  c_{t+1}(k_t) = c_t(k_t) + \eta_{\mathrm{corr}} \Bigl(
+  \textstyle\sum_i \mathbf{1}\{ s_{i,t} > \bar q_t \} - a\, n_t \Bigr).
+\]
+\item All quantities for $k \ne k_t$ are unchanged. Stocks absent on
+day $t$ (delisted or missing data) simply do not contribute terms; no
+imputation is performed.
+\end{enumerate}
+
+\paragraph{Reductions.} A single-element grid with
+$\eta_{\mathrm{corr}} = 0$ reduces the recursion exactly to the
+fixed-rate update of eq.~\eqref{eq:update} (regression-tested to
+$10^{-12}$); $K = 1$ gives pooled marginal tracking; restricting
+$\mathcal{I}_t$ to one stock gives per-stock Mondrian tracking. These
+reductions are the ablation arms of Section~\ref{sec:ablations}.
+
+\paragraph{VaR head.} The one-sided head applies the identical recursion
+with $a = \alpha \in \{0.05, 0.01\}$ and one (upper) threshold to
+standardized return losses: with forecast volatility
+$\sigma^{\mathrm{pred}}_{i,t} = \exp(m_{i,t}/2)$ from the log-variance
+forecast, the score is $z_{i,t+1} = -\,\mathrm{ret}_{i,t+1} /
+\sigma^{\mathrm{pred}}_{i,t}$ (a loss exceedance in volatility units;
+the prediction at day $t$ is scored against the \emph{next} day's
+return), and the VaR forecast is
+$\mathrm{VaR}^{(1-\alpha)}_{i,t+1} = \bar q_t\,
+\sigma^{\mathrm{pred}}_{i,t}$. Benchmark methods that produce return
+quantiles directly (GARCH-$t$, CAViaR) are converted to the same $z$
+units so all methods share one exceedance test.
