@@ -1,5 +1,10 @@
 # Results Catalog
 
+> Headline configuration (2026-07-12, R1): hard VIX-bin regimes,
+> adaptive rates, NO per-stock offsets (theory-matching config;
+> offsets are an e6 ablation arm). All numbers below regenerated
+> under this configuration.
+
 Every finding in the project, with headline numbers, the artifact that holds
 them, and the script that regenerates them. All artifacts live in `reports/`
 (tables as CSV, console logs in `reports/logs/`). Everything regenerates via
@@ -56,7 +61,7 @@ Seven methods, common 269,705 stock-day sample, alpha=0.10:
 | sfogd | .8992 | .8403 | .9102 | 1.734 | 1.909 |
 | har_qreg | .8899 | .8147 | .8484 | 1.645 | 1.708 |
 | knn_state | .8941 | .8294 | .9081 | 1.667 | 1.837 |
-| rc_hand | .8976 | **.8818** | **.9405** | 1.695 | 2.256 |
+| rc_hand | .8976 | **.8818** | **.9405** | 1.696 | 2.251 |
 | rc_adaptive | .8992 | **.8812** | **.9399** | 1.726 | 2.336 |
 
 Only the regime-conditional methods hold stress coverage; they do it by
@@ -93,9 +98,9 @@ Stress-day breach rates (nominal 5 / 1):
 | caviar | 12.63% | 5.38% | .35 |
 | aci | 8.62% | 3.06% | .48 |
 | rc_panel (hand) | 5.56% | 1.62% | .70 |
-| rc_adaptive | **5.74%** | **1.77%** | **.72** |
+| rc_adaptive | **5.73%** | **1.76%** | **.73** |
 
-rc_adaptive also has the best marginals (5.02 / 1.07) and the best
+rc_adaptive also has the best marginals (5.00 / 1.07) and the best
 Kupiec/Christoffersen pass rates. The two most-cited classical VaR models
 (GARCH-t, CAViaR) fail on stress days like everything else.
 Artifact: `reports/e3_var_summary.csv`. Script: `scripts/e3_var.py`.
@@ -106,7 +111,7 @@ Chronos-Bolt zero-shot: competitive accuracy with no training, but its
 native 80% band is marginally low (77.9%) and DIRECTIONALLY miscalibrated
 in stress: upside misses 14.6% vs 10 nominal against 5.7% downside — the
 band points the wrong way in crises. (Bolt structurally cannot emit
-quantiles beyond [.1,.9].) Our layer flattens coverage to 79.8+-0.1% in
+quantiles beyond [.1,.9].) Our layer flattens coverage to 80.0-80.2% in
 every regime.
 Artifacts: `reports/e4_tsfm_raw_coverage.csv`,
 `reports/e4_tsfm_repaired_coverage.csv`; directional table in
@@ -118,7 +123,7 @@ process — OpenMP isolation), `scripts/e4_tsfm.py`.
 DtACI-style expert bank per regime + issued-interval corrector (conformal
 PID structure). With NO tuning: ties hand-tuned stress coverage (88.1 vs
 88.2 upper .939 both), better calm/normal (90.0), +2% width; VaR marginals
-better than hand-tuned (5.02/1.07 vs 5.15/1.19). The aggregator REDISCOVERS
+better than hand-tuned (5.00/1.07 vs hand's 5.07/1.18). The aggregator REDISCOVERS
 the hand-tuned findings online (stress rates fast, extreme quantiles large).
 Artifact: `reports/e5_adaptive_rates.csv`. Script: `scripts/e5_adaptive_rates.py`.
 Key implementation lessons in `src/conformal/panel_hierarchical.py` docstring.
@@ -128,19 +133,20 @@ Key implementation lessons in `src/conformal/panel_hierarchical.py` docstring.
 | config | stress cov | note |
 |---|---|---|
 | per-stock (no pooling) | .7998 | starvation — pooling is the big lever |
-| K=1 pooled adaptive | .8738 | most of avg coverage from pooling+adaptivity |
+| K=1 pooled adaptive | .8747 | most of avg coverage from pooling+adaptivity |
 | K=4 (canonical) | .8828 | regimes add +0.9pp on this slice |
-| pooled, no offsets | .8828 | offsets negligible |
-| forecaster=har/lgbm | .8835/.8831 | layer is forecaster-agnostic |
+| pooled + per-stock offsets | .8828 | offsets negligible (headline has none) |
+| forecaster=har/lgbm | .8840/.8831 | layer is forecaster-agnostic |
 
 (K=2..5 within 0.01pp of each other — two regimes already capture the
 transition mechanism; the K choice is not load-bearing.)
 
 Where regimes actually matter (decomposition run, see
 `reports/e6_k_decomposition_notes.md`):
-1. Day-2-of-stress-entry coverage: K=1 75.4% vs K=4 **80.2%**.
+1. Day-2-of-stress-entry coverage: K=1 73.4% vs K=4 **79.4%** (reports/e6_dse_by_k.csv, scripts/e6c_dse_by_k.py).
 2. 5% VaR conditional balance: K=1 inverts (calm 5.26/stress 3.62);
-   K=4 balanced (5.00/5.71).
+   K=4 balanced (5.00/5.73). (K-sweep VaR numbers pending fold-in to a
+   regenerable script — R3 queue.)
 3. Per-regime guarantees only exist for K>1; the forward-looking acute
    group is only expressible with regimes.
 Honest nuance to report: 1% VaR K=1 beats K=4 in stress (1.18 vs 1.86).
@@ -154,9 +160,9 @@ Identical pooled adaptive calibrator under three membership sources:
 
 | membership | stress cov | stress upper | day-2 cov |
 |---|---|---|---|
-| VIX bins K=4 (canonical, causal) | .8828 | .9390 | .797 |
-| online HMM, filtered (causal) | .8763 | .9291 | .755 |
-| full-sample HMM, SMOOTHED (leaky oracle) | .8793 | .9390 | .761 |
+| VIX bins K=4 (canonical, causal) | .8828 | .9390 | .794 |
+| online HMM, filtered (causal) | .8767 | .9293 | .756 |
+| full-sample HMM, SMOOTHED (noncausal hindsight) | .8789 | .9388 | .761 |
 
 Even though filtered and oracle memberships differ substantially where it
 matters (stress-day mean abs. difference in stress-prob 0.38), coverage is
@@ -173,7 +179,7 @@ Script: `scripts/e6b_oracle_regimes.py`.
 
 ## Onset / irreducibility (E2 rounds 3-4)
 
-Day-2 of a vol spike is under-covered (72-76%) by every backward-looking
+Day-2 of a vol spike is under-covered (73-79%) by every backward-looking
 conditioning scheme tried (granularity, freshness subgroups, transition
 groups). Adding the forward-looking VIX9D/VIX>1 acute group lifts stress
 upper-tail to **94.8%** (target 95; post-2012 sample where VIX9D exists)
@@ -194,7 +200,7 @@ profiles in `reports/logs/e2_onset_run.log`). Scripts: `scripts/e2_onset.py`,
 | **2020 COVID** | .786/.879 | **.879/.949** |
 | 2022 bear market | .919/.954 | .901/.944 |
 | 2024 yen unwind | .847/.950 | .848/.958 |
-| **2025 tariff shock** | .765/.897 | **.864/.912** |
+| **2025 tariff shock** | .765/.897 | **.862/.911** |
 
 COVID is the showcase. Flash-onset episodes (2015, 2025) are hardest —
 consistent with onset irreducibility.

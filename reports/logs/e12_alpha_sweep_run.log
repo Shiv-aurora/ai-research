@@ -1,8 +1,8 @@
 alpha=0.05 aci          marginal=0.9479  cov_calm=0.9469  cov_stress=0.8913  cov_stress_upper=0.9349
-alpha=0.05 rc_adaptive  marginal=0.9491  cov_calm=0.9499  cov_stress=0.9324  cov_stress_upper=0.9624
+alpha=0.05 rc_adaptive  marginal=0.9491  cov_calm=0.9499  cov_stress=0.9324  cov_stress_upper=0.9626
 alpha=0.1 aci          marginal=0.8985  cov_calm=0.8970  cov_stress=0.8306  cov_stress_upper=0.8988
 alpha=0.1 rc_adaptive  marginal=0.8992  cov_calm=0.9000  cov_stress=0.8828  cov_stress_upper=0.9390
 alpha=0.2 aci          marginal=0.7993  cov_calm=0.7977  cov_stress=0.7298  cov_stress_upper=0.8452
-alpha=0.2 rc_adaptive  marginal=0.7997  cov_calm=0.8001  cov_stress=0.7898  cov_stress_upper=0.8950
+alpha=0.2 rc_adaptive  marginal=0.7998  cov_calm=0.8001  cov_stress=0.7912  cov_stress_upper=0.8958
 
 saved -> reports/e12_alpha_sweep.csv

@@ -11,7 +11,7 @@ guarantees, however, are \emph{marginal}: correct on average over time.
 
 This paper documents, at scale, that marginal validity conceals a
 systematic conditional failure precisely where uncertainty statements
-matter most. On a survivorship-bias-free panel of the 100 largest US
+matter most. On a point-in-time panel of the 100 largest US
 stocks over 2005--2025 (519{,}843 stock-days), adaptive conformal intervals
 for next-day realized volatility achieve their promised 90\% coverage
 almost exactly, yet cover only 82.9\% of stress-regime days, while
@@ -38,24 +38,24 @@ configuration; a soft-membership HMM variant is evaluated as robustness).
 Third, \emph{self-tuning adaptation}: per-regime learning rates are
 selected online by an expert-aggregation scheme with an issued-interval
 corrector, removing the layer's hand-tuned learning rates. The result on the same
-panel: stress coverage rises from 82.9\% to 88.3\% with other regimes flat
+panel: stress coverage rises from 82.9\% to 88.1\% with other regimes flat
 at nominal, average interval score statistically indistinguishable from
 the best baselines (Model Confidence Set), and stress-day 99\% VaR breach
 rates of 1.8\% against 3.1--6.7\% for GARCH-$t$, CAViaR, filtered
 historical simulation, and adaptive conformal baselines. The identical
-layer, applied around the Chronos median, produces bands within 0.2
+layer, applied around the Chronos median, produces bands within 0.3
 percentage points of nominal in every regime.
 
 The deficit that remains is as informative as the repair. Coverage on the
-\emph{second day} after a spike enters the stress regime stays near
-72--76\% under every conditioning scheme we tried: finer regime
-partitions, freshness subgroups, forward-looking option-implied signals
-(VIX9D), and even a deliberately leaky ``oracle'' calibrator given
-full-sample smoothed regime memberships
+\emph{second day} after a spike enters the stress regime stays 11--17
+points below the 90\% promise under every conditioning scheme we
+evaluated: finer regime partitions, freshness subgroups, the
+option-implied VIX9D/VIX signal, and even a deliberately noncausal
+hindsight calibrator given full-sample smoothed regime memberships
 (Figure~\ref{fig:dse}). Day-2 under-coverage is not a regime-detection
 failure; it is a shift in the score distribution faster than any
-bounded-step tracker can follow, and option prices do not anticipate it
-either. We report this as an honest boundary of the approach, with a
+bounded-step tracker can follow, and the option-implied signal we evaluated does not
+anticipate it either. We report this as an honest boundary of the approach, with a
 finite-sample explanation.
 
 Three framing points delimit the contribution. Point-forecast accuracy is
@@ -66,7 +66,7 @@ standard forecasts become conditionally trustworthy. The guarantees we
 prove are deterministic, hold under arbitrary cross-sectional and serial
 dependence, and condition on the calibrator's own filtered regime estimate
 (the object a risk desk can actually compute), with the gap to latent
-truth quantified empirically at 0.3 percentage points. And the evaluation
+truth probed empirically at 0.2 percentage points. And the evaluation
 is designed against survivorship: the universe is rebuilt each January
 from CRSP point-in-time market capitalizations, so Lehman Brothers,
 Wachovia, and Washington Mutual are in the panel through their deaths.

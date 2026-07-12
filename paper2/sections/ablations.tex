@@ -14,8 +14,9 @@ structure}.
 ingredients are added. Pooling the cross-section closes most of the
 average gap; regime conditioning adds the remainder on this slice;
 its distinctive contributions are conditional (see text). Oracle regimes
-(full-sample smoothed memberships, deliberately leaky) add 0.3 points
-over the causal estimator.}
+(full-sample smoothed memberships, deliberately noncausal) sit 0.2
+points above the causal filtered HMM and do not exceed the causal
+bins.}
 \label{fig:decomposition}
 \end{figure}
 
@@ -31,7 +32,7 @@ the pool forecast unless stated.}
 Configuration & Stress coverage & Stress width \\
 \midrule
 Per-stock (no pooling) & .800 & 1.70 \\
-Pooled, $K=1$ (no regimes) & .874 & 2.26 \\
+Pooled, $K=1$ (no regimes) & .875 & 2.26 \\
 Pooled, $K=2$ & .883 & 2.33 \\
 Pooled, $K=4$ (canonical) & .883 & 2.33 \\
 Pooled, $K=4$, + per-stock offsets & .883 & 2.33 \\
@@ -44,14 +45,14 @@ Pooled, $K=4$, forecaster = LightGBM & .883 & 2.26 \\
 \paragraph{Pooling is the big lever for averages.} A single stock visits
 the stress regime too rarely to calibrate itself: per-stock calibration
 reaches 80.0\% stress coverage; pooling the cross-section under one
-marginal tracker ($K = 1$) reaches 87.4\%. This ordering is worth stating
+marginal tracker ($K = 1$) reaches 87.5\%. This ordering is worth stating
 plainly because it is not the usual sales pitch: the cross-section, not
 the regime label, supplies most of the raw coverage repair.
 
 \paragraph{Regimes buy the conditional structure.} What $K > 1$ adds is
-not primarily the further 0.9 points of average stress coverage. It is:
+not primarily the further 0.8 points of average stress coverage. It is:
 (i)~\emph{transition coverage}: day-2-of-stress coverage rises from
-75.4\% ($K = 1$) to 79.7\% ($K = 4$); (ii)~\emph{conditional VaR balance}:
+73.4\% ($K = 1$) to 79.4\% ($K = 4$); (ii)~\emph{conditional VaR balance}:
 $K = 1$ inverts the 5\% VaR error profile (calm 5.3\% vs stress 3.6\%
 breaches) where $K = 4$ balances it (5.0/5.7); (iii)~the per-regime
 guarantee of Proposition~\ref{prop:adaptive} exists only when regimes exist;

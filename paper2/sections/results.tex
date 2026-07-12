@@ -75,7 +75,7 @@ DtACI & .899 & .897 & .836 & .906 & 1.70 & 1.87 \\
 SF-OGD & .899 & .898 & .840 & .910 & 1.73 & 1.91 \\
 HAR-QREG & .890 & .886 & .815 & .848 & 1.65 & 1.71 \\
 KNN-state & .894 & .892 & .829 & .908 & 1.67 & 1.84 \\
-RC (hand-tuned) & .898 & .899 & \textbf{.882} & \textbf{.941} & 1.70 & 2.26 \\
+RC (hand-tuned) & .898 & .899 & \textbf{.882} & \textbf{.941} & 1.70 & 2.25 \\
 RC (adaptive) & .899 & .900 & \textbf{.881} & \textbf{.940} & 1.73 & 2.34 \\
 \bottomrule
 \end{tabular}
@@ -126,7 +126,7 @@ tests per stock. The classical parametric models fail exactly where the
 conformal baselines do: on stress days, 99\% VaR breach rates are 4.1\%
 (GARCH-$t$), 5.4\% (CAViaR), and 3.1\% (ACI) against a 1\% budget. The RC
 head reaches 1.8\% (still above nominal, and we say so), with the
-best marginal rates (5.02/1.07 against 5/1 budgets) and the highest
+best marginal rates (5.00/1.07 against 5/1 budgets) and the highest
 backtest pass rates of all seven methods. Conditional balance matters as
 much as levels: without regimes ($K = 1$), 5\% VaR inverts its errors
 (breaching 5.3\% on calm days and 3.6\% on stress days); with regimes the
@@ -148,8 +148,8 @@ FHS & 9.0\% & 2.7\% & .61 \\
 GARCH-$t$ & 11.9\% & 4.1\% & .42 \\
 CAViaR & 12.6\% & 5.4\% & .35 \\
 ACI & 8.6\% & 3.1\% & .48 \\
-RC (hand-tuned) & 5.6\% & 1.6\% & .70 \\
-RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.72} \\
+RC (hand-tuned) & 5.5\% & 1.6\% & .70 \\
+RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.73} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -163,7 +163,7 @@ RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.72} \\
 conformalization. The native band under-covers everywhere except the
 elevated regime, and its stress misses are concentrated on the upside
 (14.6\% against a 10\% budget); the conformal layer flattens coverage to
-$79.8 \pm 0.1\%$ in every regime.}
+80.0--80.2\% across regimes.}
 \label{fig:tsfm}
 \end{figure}
 
@@ -174,8 +174,8 @@ native 80\% band covers 77.9\% marginally and is \emph{directionally}
 wrong in stress: 14.6\% upside misses against a 10\% budget versus 5.7\%
 downside. In a crisis the model's uncertainty points the wrong way, and
 its architecture cannot express quantiles beyond $[0.1, 0.9]$, capping any
-native risk use. Wrapping Chronos's median with our layer flattens
-coverage to $79.8 \pm 0.1\%$ in every regime
+native risk use. Constructing regime-calibrated intervals around Chronos's median with our
+layer flattens coverage to 80.0--80.2\% across regimes
 (Figure~\ref{fig:tsfm}). The repair is
 forecaster-agnostic by construction; this experiment shows it extends to
 the model class currently entering forecasting practice.
@@ -196,7 +196,7 @@ are not artifacts of the 90\% level.}
 \includegraphics{figures/fig_episodes.pdf}
 \caption{Coverage of nominal 90\% intervals within eight crisis episodes
 (E9). RC improves the four worst episodes, with COVID up 9.3 points
-(.786 $\to$ .879) and the 2025 tariff shock up 9.9 (.765 $\to$ .864),
+(.786 $\to$ .879) and the 2025 tariff shock up 9.7 (.765 $\to$ .862),
 and tracks nominal more closely in episodes where ACI over-covers (2022).
 Flash-onset episodes (2015, 2024) move least, consistent with
 Section~\ref{sec:onset}.}

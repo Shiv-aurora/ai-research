@@ -70,10 +70,6 @@ $MER: possibly delisted; no price data found  (1d 2005-01-03 -> 2026-01-01) (Yah
 
 1 Failed download:
 ['MER']: possibly delisted; no price data found  (1d 2005-01-03 -> 2026-01-01) (Yahoo error = "Data doesn't exist for startDate = 1104728400, endDate = 1767243600")
-$MHS: possibly delisted; no price data found  (1d 2005-01-03 -> 2026-01-01)
-
-1 Failed download:
-['MHS']: possibly delisted; no price data found  (1d 2005-01-03 -> 2026-01-01)
 $MMC: possibly delisted; no timezone found
 
 1 Failed download:
@@ -143,40 +139,40 @@ $YHOO: possibly delisted; no timezone found
 1 Failed download:
 ['YHOO']: possibly delisted; no timezone found
 === (a) two-sided, alpha=0.10, aligned K=4 bins ===
-marginal            0.896304
-width               1.676581
-width_stress        2.245088
-cov_stress_upper    0.939828
-cov_calm            0.896907
-cov_normal          0.895957
-cov_elevated        0.898041
-cov_stress          0.883559
-marginal            0.899201
-width               1.715049
-width_stress        2.325226
+marginal            0.896228
+width               1.676457
+width_stress        2.240694
+cov_stress_upper    0.939686
+cov_calm            0.896828
+cov_normal          0.895891
+cov_elevated        0.897998
+cov_stress          0.883346
+marginal            0.899212
+width               1.714969
+width_stress        2.326179
 cov_stress_upper    0.939048
-cov_calm            0.899985
-cov_normal          0.899587
+cov_calm            0.899966
+cov_normal          0.899687
 cov_elevated        0.899793
-cov_stress           0.88285
-  adaptive effective eta_hi (late-sample mean): calm=0.0091  normal=0.0082  elevated=0.0053  stress=0.0058
+cov_stress          0.882779
+  adaptive effective eta_hi (late-sample mean): calm=0.0092  normal=0.0082  elevated=0.0053  stress=0.0054
 
 === (b) one-sided VaR, alpha=0.05 ===
-rate           0.051462
-rate_calm      0.051114
-rate_stress    0.055447
-rate           0.050154
-rate_calm      0.049986
-rate_stress    0.057331
-  adaptive effective eta_hi (late-sample mean): calm=0.0084  normal=0.0063  elevated=0.0054  stress=0.0136
+rate           0.050894
+rate_calm      0.050597
+rate_stress    0.054867
+rate           0.050117
+rate_calm      0.049976
+rate_stress    0.056969
+  adaptive effective eta_hi (late-sample mean): calm=0.0084  normal=0.0062  elevated=0.0053  stress=0.0161
 
 === (b) one-sided VaR, alpha=0.01 ===
-rate           0.011935
-rate_calm      0.011498
-rate_stress    0.015801
-rate            0.01073
+rate           0.011878
+rate_calm      0.011448
+rate_stress    0.015728
+rate           0.010722
 rate_calm        0.0102
 rate_stress    0.017323
-  adaptive effective eta_hi (late-sample mean): calm=0.0150  normal=0.0115  elevated=0.0114  stress=0.0207
+  adaptive effective eta_hi (late-sample mean): calm=0.0150  normal=0.0114  elevated=0.0113  stress=0.0207
 
 saved -> /Users/shivamarora/Documents/research-final/reports/e5_adaptive_rates.csv

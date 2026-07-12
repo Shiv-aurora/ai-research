@@ -26,12 +26,12 @@ marginal      11.14      10.91
 [c] regime-conditional conformal repair (coverage target 0.80):
             mean      size
 vix_pctl                  
-calm      0.7976  202648.0
-normal    0.7976   87602.0
-elevated  0.7983   44117.0
-stress    0.7988   13325.0
-marginal  0.7978  347692.0
+calm      0.7997  202648.0
+normal    0.8010   87602.0
+elevated  0.8015   44117.0
+stress    0.8021   13325.0
+marginal  0.8004  347692.0
 
-mean band expansion (fraction of model halfwidth): calm +0.076, stress +0.095
+mean band expansion (fraction of model halfwidth): calm +0.078, stress +0.102
 
 saved -> reports/e4_tsfm_*.csv

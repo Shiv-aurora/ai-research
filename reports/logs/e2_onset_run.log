@@ -1,37 +1,37 @@
 acute (VIX9D>VIX) share of days since 2012: 0.250
 
-=== rc_no_onset: marginal=0.9000 width=1.7064 ===
+=== rc_no_onset: marginal=0.9000 width=1.7070 ===
+           coverage  upper_coverage       n
+state_bin                                  
+calm         0.8999          0.9489  176911
+normal       0.9006          0.9491   80841
+elevated     0.9083          0.9559   44935
+stress       0.8718          0.9373   14082
+days-since-entry profile:
+        mean  size
+dse               
+1     0.8638  2857
+2     0.7421  1322
+3     0.8873   834
+4-5   0.8890  1666
+6-10  0.8596  2963
+>10   0.9144  4440
+
+=== rc_onset: marginal=0.9004 width=1.7307 ===
            coverage  upper_coverage       n
 state_bin                                  
 calm         0.9000          0.9489  176911
-normal       0.9005          0.9490   80841
-elevated     0.9082          0.9559   44935
-stress       0.8717          0.9374   14082
-days-since-entry profile:
-        mean  size
-dse               
-1     0.8642  2857
-2     0.7428  1322
-3     0.8885   834
-4-5   0.8866  1666
-6-10  0.8593  2963
->10   0.9144  4440
-
-=== rc_onset: marginal=0.9004 width=1.7311 ===
-           coverage  upper_coverage       n
-state_bin                                  
-calm         0.9001          0.9489  176911
 normal       0.9011          0.9487   80841
-elevated     0.9070          0.9550   44935
-stress       0.8796          0.9475   14082
+elevated     0.9071          0.9552   44935
+stress       0.8792          0.9475   14082
 days-since-entry profile:
         mean  size
 dse               
-1     0.8747  2857
-2     0.7224  1322
+1     0.8754  2857
+2     0.7163  1322
 3     0.8897   834
 4-5   0.8836  1666
-6-10  0.8630  2963
+6-10  0.8633  2963
 >10   0.9372  4440
 
 saved -> reports/e2onset_*_dse.csv

@@ -11,17 +11,34 @@ dtaci          0.8986    0.8972      0.9047        0.9128      0.8360           
 sfogd          0.8992    0.8983      0.9030        0.9147      0.8403            0.9102  1.7342        1.9091
 har_qreg       0.8899    0.8864      0.9020        0.9050      0.8147            0.8484  1.6452        1.7076
 knn_state      0.8941    0.8920      0.8974        0.9164      0.8294            0.9081  1.6670        1.8367
-rc_hand        0.8976    0.8986      0.8976        0.8992      0.8818            0.9405  1.6954        2.2557
-rc_adaptive    0.8992    0.9000      0.8994        0.9015      0.8812            0.9399  1.7258        2.3360
+rc_hand        0.8976    0.8986      0.8975        0.8994      0.8818            0.9405  1.6955        2.2514
+rc_adaptive    0.8992    0.9000      0.8995        0.9014      0.8812            0.9398  1.7256        2.3372
 
 === MCS over daily interval scores ===
              mean_loss  mcs_pvalue  in_mcs
-rc_hand         2.3178      0.3795    True
-dtaci           2.3277      0.3795    True
-rc_adaptive     2.3284      0.3795    True
-har_qreg        2.3310      0.3795    True
-aci             2.3323      0.3795    True
-knn_state       2.3325      0.3795    True
-sfogd           2.3606      0.0000   False
+rc_hand         2.3185        0.42    True
+dtaci           2.3277        0.42    True
+rc_adaptive     2.3290        0.42    True
+har_qreg        2.3310        0.42    True
+aci             2.3323        0.42    True
+knn_state       2.3325        0.42    True
+sfogd           2.3606        0.00   False
 
-saved -> reports/e2_full_summary.csv, reports/e2_full_mcs.csv
+=== Date-clustered coverage inference ===
+     method    slice  coverage     se  n_dates  diff_vs_rc  t_vs_rc  p_vs_rc
+        aci marginal    0.8986 0.0024     3252      0.0005   0.4054   0.6852
+        aci   stress    0.8299 0.0255      150      0.0506   3.0537   0.0023
+      dtaci marginal    0.8986 0.0023     3252      0.0006   0.4644   0.6423
+      dtaci   stress    0.8366 0.0254      150      0.0438   2.7801   0.0054
+      sfogd marginal    0.8992 0.0023     3252     -0.0000  -0.0425   0.9661
+      sfogd   stress    0.8408 0.0247      150      0.0396   2.6326   0.0085
+   har_qreg marginal    0.8898 0.0026     3252      0.0094   4.5339   0.0000
+   har_qreg   stress    0.8158 0.0261      150      0.0646   2.7069   0.0068
+  knn_state marginal    0.8941 0.0024     3252      0.0051   3.4448   0.0006
+  knn_state   stress    0.8301 0.0262      150      0.0503   2.7812   0.0054
+    rc_hand marginal    0.8976 0.0021     3252      0.0015   2.0594   0.0395
+    rc_hand   stress    0.8810 0.0185      150     -0.0006  -0.1513   0.8798
+rc_adaptive marginal    0.8991 0.0019     3252         NaN      NaN      NaN
+rc_adaptive   stress    0.8804 0.0185      150         NaN      NaN      NaN
+
+saved -> reports/e2_full_summary.csv, reports/e2_full_mcs.csv, reports/e2_clustered_se.csv
