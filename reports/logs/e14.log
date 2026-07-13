@@ -1,0 +1,27 @@
+=== E14a subperiod stability ===
+     method    period  marginal  cov_stress  cov_stress_upper  width      n  n_stress
+        aci 2010-2017    0.8977      0.8957            0.9266 1.6621 183337      5597
+        aci 2018-2025    0.8993      0.7877            0.8805 1.7162 191735      8488
+  pooled_k1 2010-2017    0.8996      0.8933            0.9443 1.6912 173786      5605
+  pooled_k1 2018-2025    0.9005      0.8624            0.9384 1.7375 191783      8488
+rc_adaptive 2010-2017    0.8982      0.8826            0.9317 1.6863 173786      5605
+rc_adaptive 2018-2025    0.9001      0.8829            0.9439 1.7409 191783      8488
+
+=== E14a stress gap (rc_adaptive - aci), date-clustered ===
+   period  stress_gap       t      p    n
+2010-2017     -0.0129 -1.8905 0.0587 5597
+2018-2025      0.0941  4.3409 0.0000 8488
+
+=== E14b leave-one-crisis-out stress coverage ===
+method           aci  rc_adaptive
+dropped_year                     
+2011          0.8306       0.8828
+2015          0.8099       0.8832
+2018          0.8291       0.8813
+2020          0.8536       0.8825
+2022          0.8306       0.8828
+2024          0.8352       0.8865
+2025          0.8411       0.8825
+none          0.8306       0.8828
+
+saved -> reports/e14_subperiod.csv, reports/e14_subperiod_gap.csv, reports/e14_loco.csv

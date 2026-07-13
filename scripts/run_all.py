@@ -31,9 +31,15 @@ STEPS: list[tuple[str, list[str]]] = [
                            "reports/e4_tsfm_repaired_coverage.csv"]),
     ("e5_adaptive_rates", ["reports/e5_adaptive_rates.csv"]),
     ("e6_ablations",      ["reports/e6_ablations.csv"]),
+    ("e6b_oracle_regimes", ["reports/e6b_oracle_regimes.csv"]),
+    ("e6c_dse_by_k",      ["reports/e6_dse_by_k.csv"]),
+    ("e6d_reclassified_eval", ["reports/e6d_reclassified_eval.csv"]),
     ("e9_stress_windows", ["reports/e9_stress_windows.csv"]),
     ("e10_holdout",       ["reports/e10_holdout.csv"]),
     ("e12_alpha_sweep",   ["reports/e12_alpha_sweep.csv"]),
+    ("e13_pooling_mechanism", ["reports/e13_pooling_mechanism.csv"]),
+    ("e14_temporal_holdout", ["reports/e14_subperiod.csv",
+                              "reports/e14_loco.csv"]),
 ]
 
 

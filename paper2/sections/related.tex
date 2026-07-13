@@ -45,11 +45,42 @@ states of an HMM. Relative to this line, our setting is a cross-sectional
 index; our regimes are estimated online rather than supplied as features;
 our target is regime-\emph{conditional} coverage rather than marginal; and
 we evaluate conditionally throughout. \citet{lin2022conformal} and the
-weighted panel extension of arXiv:2605.17705 pool calibration information
-across cross-sectional units via similarity weights; our ablation of a
-similarity-weighted baseline (Section~\ref{sec:results}) shows that
-similarity without coverage feedback leaves the stress deficit essentially
-intact, which is why our pooling operates inside a tracking loop instead.
+weighted panel extension of \citet{wtqa2026panel} pool calibration
+information across cross-sectional units; similarity weighting appears in
+our comparison as the KNN-state baseline, and Section~\ref{sec:results}
+implements the two closest recent proposals directly, TCP-RM
+\citep{aich2025temporal} and a cross-sectional split-conformal baseline
+in the spirit of \citet{wtqa2026panel}, on the identical panel. Both are
+marginally valid and both leave most of the stress deficit in place,
+which is why our pooling operates inside regime-conditional tracking
+loops instead. Table~\ref{tab:related} locates this paper against the
+four nearest neighbours.
+
+\begin{table}[t]
+\centering
+\caption{The four nearest methods and where this paper differs.
+``Feedback'' means an online update driven by realized coverage errors.}
+\label{tab:related}
+\small
+\begin{tabular}{lp{2.2cm}p{2.3cm}p{2.6cm}p{2.6cm}}
+\toprule
+ & Data setting & Regimes / groups & Coverage target & Evaluation \\
+\midrule
+\citet{bharti2026parameterfree} & single stream & given to algorithm &
+group-conditional & synthetic + benchmark ML \\
+\citet{aich2025temporal} & 3 index series & none &
+marginal (feedback) & marginal + crisis window \\
+\citet{wtqa2026panel} & generic panel & none (unit similarity) &
+per-unit marginal & synthetic + small panels \\
+\citet{proxyvar2026} & single portfolio & none &
+one-sided marginal & VaR backtests \\
+\addlinespace
+This paper & 223-stock PIT panel & estimated online &
+regime-conditional (feedback per regime) & conditional throughout +
+VaR + TSFM repair \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \paragraph{Volatility and VaR econometrics.}
 HAR regressions \citep{corsi2009simple} on realized measures

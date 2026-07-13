@@ -2,9 +2,14 @@
 
 Methods (all two-sided at alpha=0.10, walk-forward, common sample):
   aci / dtaci / sfogd   per-stock marginal online conformal baselines
+  tcp_rm                per-stock rolling conformal + Robbins-Monro offset
+                        (Aich et al. 2025, ported to our score scale)
   har_qreg              per-stock quantile regression on HAR lags (direct)
   knn_state             similarity-weighted conformal (continuous-state
                         rival to discrete regimes; HopCPT/NexCP spirit)
+  xs_panel              cross-sectional split-conformal + adaptive level
+                        (Tu-Giesecke 2026 spirit; panel pooling, no regimes)
+  pooled_k1             our machinery with K=1 (pooling without regimes)
   rc_hand               pooled regime-conditional, hand-tuned rates
   rc_adaptive           pooled regime-conditional, adaptive rates (ours)
 
@@ -27,7 +32,9 @@ from src.conformal.aci import run_aci
 from src.conformal.dtaci import run_dtaci
 from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.conformal.sfogd import run_sfogd
+from src.conformal.panel_xs import run_panel_xs
 from src.conformal.similarity import run_knn_state_conformal
+from src.conformal.tcp import run_tcp_rm
 from src.eval.coverage import coverage_by_state, marginal_coverage
 from src.eval.dm_hac import dm_test, hac_mean_se
 from src.eval.mcs import interval_score, mcs
@@ -75,6 +82,7 @@ def _stock_worker(args):
     res = {"aci": lambda: run_aci(s, alpha=ALPHA, eta=0.05, warmup=WARMUP),
            "dtaci": lambda: run_dtaci(s, alpha=ALPHA, warmup=WARMUP),
            "sfogd": lambda: run_sfogd(s, alpha=ALPHA, warmup=WARMUP),
+           "tcp_rm": lambda: run_tcp_rm(s, alpha=ALPHA, warmup=WARMUP),
            }[method]()
     g["lo"] = g["pool"].values - res["q_lo"].values
     g["hi"] = g["pool"].values + res["q_hi"].values
@@ -103,7 +111,7 @@ def main() -> None:
     member = aligned_bins(market)
 
     print("[1/3] per-stock ACI / DtACI / SF-OGD / HAR-QREG across cores ...")
-    jobs = [(m, g) for m in ["aci", "dtaci", "sfogd", "har_qreg"]
+    jobs = [(m, g) for m in ["aci", "dtaci", "sfogd", "tcp_rm", "har_qreg"]
             for _, g in preds.groupby("ticker")]
     bounds: dict[str, list | pd.DataFrame] = {}
     for r in pmap(_stock_worker, jobs):
@@ -127,6 +135,13 @@ def main() -> None:
     # baselines' closest pooled counterpart a seat in the MAIN table
     member1 = pd.DataFrame(1.0, index=member.index, columns=["regime_0"])
     bounds["pooled_k1"] = panel_bounds(preds, member1, adaptive=True)
+    # cross-sectional split-conformal (Tu-Giesecke-style panel baseline)
+    xs = run_panel_xs(preds, "pool", alpha=ALPHA, warmup_days=WARMUP)
+    xs_b = xs[["ticker", "date", "target"]].copy()
+    xs_b["lo"] = xs["pool"] - xs["q_lo"] * xs["sigma_hat"]
+    xs_b["hi"] = xs["pool"] + xs["q_hi"] * xs["sigma_hat"]
+    xs_b["warm"] = xs["warmup"]
+    bounds["xs_panel"] = xs_b
 
     # common evaluation sample: (ticker, date) present & non-warm everywhere
     keys, flow = None, []

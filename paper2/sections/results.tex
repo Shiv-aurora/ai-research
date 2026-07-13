@@ -38,14 +38,20 @@ of the conditional deficit while holding other regimes at nominal.}
 \label{fig:coverage}
 \end{figure}
 
-Table~\ref{tab:main} is the paper's central comparison: eight methods on
+Table~\ref{tab:main} is the paper's central comparison: ten methods on
 the identical common sample. The baselines span the online conformal
-family (ACI, DtACI, SF-OGD), a classical direct-quantile model (HAR
-quantile regression), and a similarity-weighted conformal method
-(KNN-state, in the spirit of HopCPT/NexCP: thresholds from the $k = 250$
-most similar past days by market state). Every marginal coverage sits
+family (ACI, DtACI, SF-OGD), the recent rolling-conformal method of
+\citet{aich2025temporal} with its Robbins--Monro coverage offset (TCP-RM,
+ported to our score scale with its published constants), a classical
+direct-quantile model (HAR quantile regression), a similarity-weighted
+conformal method (KNN-state, in the spirit of HopCPT/NexCP: thresholds
+from the $k = 250$ most similar past days by market state), and a
+cross-sectional split-conformal baseline in the spirit of
+\citet{wtqa2026panel} (XS-panel: each day's thresholds from the pooled
+score cross-sections of the previous five days, with an adaptive
+miscoverage level). Every marginal coverage sits
 within half a point of 90\%; every baseline's stress coverage sits between
-81.5\% and 84.0\%. The two regime-conditional variants (hand-tuned
+81.5\% and 84.9\%. The two regime-conditional variants (hand-tuned
 rates and the zero-tuning adaptive configuration) reach 88.1--88.2\%,
 with the stress upper tail at 94.0\% against 95\% nominal versus
 84.8--91.0\% for the baselines. These differences carry real
@@ -54,8 +60,9 @@ demands: daily cross-sectional means with Newey--West standard errors
 over the resulting series (clustering by date). Stress coverage is
 $.881 \pm .019$ for RC against $.830 \pm .026$ for ACI; the paired
 stress-coverage difference is $+5.1$ points against ACI
-($t = 3.05$, $p = .002$) and significant at the 1\% level against every
-baseline, while marginal coverage differences among the conformal
+($t = 3.05$, $p = .002$), significant at the 1\% level against every
+baseline except TCP-RM ($+3.1$ points, $p = .027$), while marginal
+coverage differences among the conformal
 methods are statistically zero ($|t| < 0.5$), exactly as marginal
 validity predicts.
 
@@ -102,8 +109,10 @@ in stress (nominal 95\%). RC~=~regime-conditional pooled layer.}
 ACI & .899 & .897 & .829 & .901 & 1.70 & 1.80 \\
 DtACI & .899 & .897 & .836 & .906 & 1.70 & 1.87 \\
 SF-OGD & .899 & .898 & .840 & .910 & 1.73 & 1.91 \\
+TCP-RM & .900 & .899 & .849 & .919 & 1.79 & 2.07 \\
 HAR-QREG & .890 & .886 & .815 & .848 & 1.65 & 1.71 \\
 KNN-state & .894 & .892 & .829 & .908 & 1.67 & 1.84 \\
+XS-panel & .900 & .907 & .827 & .933 & 1.80 & 1.99 \\
 Pooled, $K=1$ (no regimes) & .900 & .901 & .873 & .941 & 1.73 & 2.27 \\
 RC (hand-tuned) & .898 & .899 & \textbf{.882} & \textbf{.941} & 1.70 & 2.25 \\
 RC (adaptive) & .899 & .900 & \textbf{.881} & \textbf{.940} & 1.73 & 2.34 \\
@@ -111,7 +120,7 @@ RC (adaptive) & .899 & .900 & \textbf{.881} & \textbf{.940} & 1.73 & 2.34 \\
 \end{tabular}
 \end{table}
 
-Four readings of Table~\ref{tab:main} matter. First, pooling without
+Five readings of Table~\ref{tab:main} matter. First, pooling without
 regimes already does most of the average work: the pooled $K = 1$ row
 reaches 87.3\% stress coverage, and the regime layer's further average
 contribution is $+0.8$ points (not significant under date clustering,
@@ -124,12 +133,25 @@ costly by the standard efficiency metric of the interval-forecasting
 literature: a Model Confidence Set \citep{hansen2011model}
 over daily cross-sectional mean interval scores \citep{winkler1972decision}
 retains both RC variants among the undominated set (RC hand-tuned has the
-lowest mean loss) and eliminates SF-OGD ($p < .001$); we do not detect
-inferior average interval-score performance. Fourth, similarity weighting
+lowest mean loss) and eliminates SF-OGD, TCP-RM, and XS-panel
+($p < .001$); we do not detect inferior average interval-score
+performance. Fourth, similarity weighting
 without a coverage feedback loop does not solve the problem: KNN-state
 improves on ACI in stress by only 0.1 points. Selecting similar days is
 not the same as tracking a coverage target within a regime, which is why our
-pooling operates inside the tracking loop.
+pooling operates inside the tracking loop. Fifth, the two most recently
+proposed baselines bracket our design and fall short on opposite sides.
+TCP-RM is the strongest per-stock method in stress (84.9\%, still $3.1$
+points below RC, $t = 2.21$, $p = .027$) but pays for it with the widest
+per-stock intervals, because its rolling 60-day window forgets calm-period
+scores wholesale rather than conditioning on the regime. XS-panel has
+access to the same cross-sectional information our method pools, yet its
+stress coverage (82.7\%) is indistinguishable from ACI's: contemporaneous
+cross-sections tell the calibrator how wide intervals should be
+\emph{today}, but without per-regime tracking the adaptive level still
+reacts only after misses accumulate. Cross-sectional information and
+coverage feedback each fail separately; the gain comes from combining
+them inside regime-conditional trackers.
 
 \subsection{Self-tuning rates}\label{sec:adaptive}
 
@@ -257,3 +279,42 @@ stress coverage deficit stays near 6--7 points for ACI and 1--2 points for
 RC at every level (Figure~\ref{fig:alpha}); and replacing
 VIX bins with the online HMM changes stress coverage by under two points,
 so no conclusion depends on the regime estimator.
+
+Time is the other axis a design could overfit. Every constant in the
+method is fixed a priori (Appendix~\ref{app:algorithm}) and calibration is
+fully online, so there is no fitting step to freeze; the temporal question
+is whether the conclusions depend on any particular stretch of the
+evaluation window. Table~\ref{tab:temporal} splits the evaluation at
+January 2018. The stress deficit turns out to be a phenomenon of the
+recent market era: in 2010--2017 (whose stress episodes, 2011 and 2015,
+built up comparatively slowly) ACI's stress coverage was adequate at
+89.6\%, while in 2018--2025 (Volmageddon, COVID, the 2022 bear market,
+the 2024 yen unwind, the 2025 tariff shock) it collapses to 78.8\%. RC
+delivers 88.3\% in \emph{both} halves: the paired stress gap is $+9.4$
+points ($t = 4.3$) in the second half and $-1.3$ points (not significant,
+$p = .06$) in the first. The method behaves like insurance: large payoff
+in the era of fast regime shifts, no significant cost in the era without
+them. Leave-one-crisis-out slicing shows the same stability: dropping any single episode's stress days moves RC stress
+coverage by at most 0.4 points (range .881--.887), while ACI stays
+deficient no matter which crisis is removed (at most .854, with COVID
+excluded).
+
+\begin{table}[t]
+\centering
+\caption{Temporal robustness (E14): the same issued intervals evaluated
+by subperiod, full panel. The paired stress gap is the date-clustered
+difference RC~$-$~ACI on common stress days.}
+\label{tab:temporal}
+\small
+\begin{tabular}{llcccc}
+\toprule
+Period & Method & Marginal & Stress & Stress up & Stress gap ($t$) \\
+\midrule
+2010--2017 & ACI & .898 & .896 & .927 & \\
+ & RC (adaptive) & .898 & .883 & .932 & $-1.3$ ($-1.9$) \\
+\addlinespace
+2018--2025 & ACI & .899 & .788 & .881 & \\
+ & RC (adaptive) & .900 & .883 & .944 & $+9.4$ ($4.3$) \\
+\bottomrule
+\end{tabular}
+\end{table}

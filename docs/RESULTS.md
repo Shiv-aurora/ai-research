@@ -52,18 +52,30 @@ Script: `scripts/e1_prototype.py`.
 
 ## E2 — Main interval comparison + MCS (Table 2)
 
-Seven methods, common 269,705 stock-day sample, alpha=0.10:
+Ten methods, common 269,705 stock-day sample, alpha=0.10 (R4 run: adds
+tcp_rm = Aich et al. rolling conformal + Robbins-Monro offset, ported to
+our score scale, and xs_panel = Tu-Giesecke-spirit cross-sectional
+split-conformal with adaptive level):
 
 | method | marginal | stress | stress upper | width | width stress |
 |---|---|---|---|---|---|
 | aci | .8986 | .8292 | .9006 | 1.703 | 1.803 |
 | dtaci | .8986 | .8360 | .9058 | 1.699 | 1.870 |
 | sfogd | .8992 | .8403 | .9102 | 1.734 | 1.909 |
+| tcp_rm | .8995 | .8488 | .9190 | 1.790 | 2.069 |
 | har_qreg | .8899 | .8147 | .8484 | 1.645 | 1.708 |
 | knn_state | .8941 | .8294 | .9081 | 1.667 | 1.837 |
+| xs_panel | .9003 | .8272 | .9326 | 1.800 | 1.985 |
 | rc_hand | .8976 | **.8818** | **.9405** | 1.696 | 2.251 |
-| rc_adaptive | .8992 | **.8812** | **.9399** | 1.726 | 2.337 |
+| rc_adaptive | .8992 | **.8812** | **.9398** | 1.726 | 2.337 |
 | pooled_k1 | .9002 | .8731 | .9414 | 1.728 | 2.268 |
+
+tcp_rm is the best per-stock baseline in stress (.849, still 3.1pp below
+rc_adaptive, t=2.21 p=.027 — the only pairwise gap not significant at 1%)
+but has the widest per-stock intervals (rolling 60-day window forgets calm
+scores wholesale). xs_panel shows cross-sectional information ALONE does
+not fix stress (.827 ~= aci) — pooling must sit inside regime-conditional
+tracking. MCS eliminates sfogd, tcp_rm, AND xs_panel (p=.000).
 
 pooled_k1 (K=1, no regimes) now sits IN the main table: regimes' further
 average stress contribution is +0.8pp (t=0.63, p=.53 clustered — not
@@ -81,8 +93,10 @@ score.
 Date-clustered inference (daily cross-sectional means, Newey-West over the
 daily series): stress coverage rc_adaptive .880 (se .019) vs aci .830
 (se .026); paired stress-coverage difference vs rc_adaptive is significant
-at 1% against every baseline (aci +5.05pp t=3.05 p=.002; dtaci t=2.78;
-sfogd t=2.63; har_qreg t=2.71; knn t=2.77). Marginal differences among
+at 1% against every baseline except tcp_rm (+3.1pp t=2.21 p=.027, 5%
+level) — aci +5.06pp t=3.05 p=.002; dtaci t=2.78; sfogd t=2.63;
+har_qreg t=2.71; knn t=2.78; xs_panel +5.3pp t=3.22 p=.001.
+Marginal differences among
 conformal methods are ~0 (|t|<0.5), as marginal validity predicts.
 rc_hand vs rc_adaptive stress difference is noise (p=.83).
 
@@ -265,6 +279,28 @@ the PIT universe: ACI stress .832/.829, ours .875/.876 (upper .930/.932) —
 the failure and repair reproduce on both halves; slightly smaller than
 full-panel gains, consistent with halved pooling cross-section.
 Artifact: `reports/e10_holdout.csv`. Script: `scripts/e10_holdout.py`.
+
+## E14 — Temporal robustness: subperiod split + leave-one-crisis-out (R4)
+
+Same issued intervals (full panel, online, constants a priori) evaluated
+by subperiod, split 2018-01-01:
+
+| period | aci stress | rc stress | paired gap (clustered) |
+|---|---|---|---|
+| 2010-2017 | .8957 | .8826 | -1.3pp (t=-1.89, p=.06 ns) |
+| 2018-2025 | .7877 | .8829 | +9.4pp (t=4.34, p<.0001) |
+
+The stress deficit is a phenomenon of the recent fast-shift era
+(Volmageddon, COVID, 2022, 2024-25); in the slow-building 2010-2017
+episodes ACI kept up. RC delivers ~.883 in BOTH halves — insurance
+framing: large payoff when the phenomenon is present, no significant cost
+when absent. Marginals ~.90 everywhere.
+
+Leave-one-crisis-out stress coverage: RC range .8813-.8865 whichever
+episode year is dropped (max move 0.4pp); ACI never above .8536 (best
+case = COVID dropped). No single crisis drives the result.
+Artifacts: `reports/e14_subperiod.csv`, `reports/e14_subperiod_gap.csv`,
+`reports/e14_loco.csv`. Script: `scripts/e14_temporal_holdout.py`.
 
 ## E12 — Alpha robustness
 
