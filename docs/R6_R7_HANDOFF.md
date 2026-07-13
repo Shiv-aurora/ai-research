@@ -5,7 +5,7 @@ received 2026-07-13, pasted in chat). If you are a fresh session: read
 this file, then `docs/RESULTS.md` (E15–E18 sections) and
 `~/.claude/projects/.../memory/project-rccv-flagship.md`. Repo:
 `github.com/Shiv-aurora/ai-research`, branch `main`, last pushed commit
-`50db373` (R5). **UPDATE: R6 committed as `eb5487e` and pushed. Steps 1-5 of the remaining list are DONE (RESULTS.md E2/E3 updated, PDF rebuilt clean 45pp/0 undefined/0 'Appendix Appendix'/0 visible 'oracle', figures regenerated with de-oracled legends, 76+2 tests green). Remaining = step 6 (R7 leftovers, chiefly the figure overhaul) and steps 7-8.**
+`50db373` (R5). **UPDATE: R6 committed as `eb5487e` and pushed. Steps 1-5 of the remaining list are DONE (RESULTS.md E2/E3 updated, PDF rebuilt clean 45pp/0 undefined/0 'Appendix Appendix'/0 visible 'oracle', figures regenerated with de-oracled legends, 76+2 tests green). R7 committed as `7568055` and pushed: highlights separate file, figures de-truncated with HAC-CI whiskers (fig1/tsfm/decomposition/dse), manuscript 44pp clean. Memory updated. ALL R6+R7 WORK COMPLETE. Open items are user-facing only: title decision (reviewer suggests weighting panel-pooling >= regimes — E17 supports it), cold read of paper2/main.pdf, replication zip, 4-6 suggested reviewers, competing-interests docx, IJF prior-version disclosure (RIVE/MLWA) in the cover letter.**
 
 ## Context
 
