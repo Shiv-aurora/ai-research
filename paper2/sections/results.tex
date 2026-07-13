@@ -10,7 +10,7 @@ calibration results cannot be attributed to a weak or strong point model.
 
 \begin{table}[t]
 \centering
-\caption{Point-forecast sanity (E0). The pool is statistically
+\caption{Point-forecast sanity. The pool is statistically
 indistinguishable from its best member; the calibration layer applies
 unchanged to any column.}
 \label{tab:e0}
@@ -76,7 +76,7 @@ below 85\% stress coverage falls from 70\% to 14\%.
 
 \begin{table}[t]
 \centering
-\caption{Per-stock coverage distribution (E2), common sample, stocks
+\caption{Per-stock coverage distribution, common sample, stocks
 with at least 25 stress observations ($n = 107$; marginal rows use all
 136 stocks). Quantiles of realized per-stock coverage of nominal 90\%
 intervals.}
@@ -97,7 +97,7 @@ Stress & ACI & .757 & .780 & .839 & .859 & .70 \\
 
 \begin{table}[t]
 \centering
-\caption{Main comparison (E2): coverage of nominal 90\% intervals and
+\caption{Main comparison: coverage of nominal 90\% intervals and
 interval widths on the common sample. ``Stress up'' is upper-tail coverage
 in stress (nominal 95\%). RC~=~regime-conditional pooled layer.}
 \label{tab:main}
@@ -171,7 +171,7 @@ method and the hand-tuned one as an ablation.
 \begin{figure}[t]
 \centering
 \includegraphics{figures/fig_var_breach.pdf}
-\caption{Stress-day VaR breach rates (E3) against the nominal budgets
+\caption{Stress-day VaR breach rates against the nominal budgets
 (dashed). Classical parametric models and conformal baselines alike breach
 two to six times their budget on stress days; the regime-conditional head
 comes closest to nominal at both levels.}
@@ -192,7 +192,7 @@ profile is 5.0/5.7 (Section~\ref{sec:ablations}).
 
 \begin{table}[t]
 \centering
-\caption{Next-day VaR backtests (E3). Stress-day breach rates against
+\caption{Next-day VaR backtests. Stress-day breach rates against
 nominal budgets of 5\% and 1\%; the last three columns are the shares
 of stocks whose 99\% VaR sequence passes the Kupiec unconditional
 coverage, Christoffersen conditional coverage, and Engle--Manganelli
@@ -217,12 +217,12 @@ RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.89} & .92 & \textbf{.
 \end{tabular}
 \end{table}
 
-\subsection{Foundation models have the same disease}\label{sec:tsfm}
+\subsection{The same failure in a time-series foundation model}\label{sec:tsfm}
 
 \begin{figure}[t]
 \centering
 \includegraphics{figures/fig_tsfm_repair.pdf}
-\caption{Chronos-Bolt's native 80\% band by regime (E4), before and after
+\caption{Chronos-Bolt's native 80\% band by regime, before and after
 conformalization. The native band under-covers everywhere except the
 elevated regime, and its stress misses are concentrated on the upside
 (14.6\% against a 10\% budget); the conformal layer flattens coverage to
@@ -230,8 +230,9 @@ elevated regime, and its stress misses are concentrated on the upside
 \label{fig:tsfm}
 \end{figure}
 
-Chronos-Bolt \citep{ansari2024chronos}, applied zero-shot to each stock's
-trailing 512-day log-RV history, is competitive on point accuracy with no
+Chronos-Bolt (the \texttt{amazon/chronos-bolt-small} checkpoint, 48M
+parameters), applied zero-shot to each stock's
+trailing 512-day log-RV history \citep{ansari2024chronos}, is competitive on point accuracy with no
 training, consistent with \citet{brini2026forecasting}, but its
 native 80\% band covers 77.9\% marginally and is \emph{directionally}
 wrong in stress: 14.6\% upside misses against a 10\% budget versus 5.7\%
@@ -249,7 +250,7 @@ the model class currently entering forecasting practice.
 \centering
 \includegraphics{figures/fig_alpha_sweep.pdf}
 \caption{Stress coverage deficit (percentage points below the nominal
-level) across nominal levels (E12). The conditional failure and its repair
+level) across nominal levels. The conditional failure and its repair
 are not artifacts of the 90\% level.}
 \label{fig:alpha}
 \end{figure}
@@ -258,7 +259,7 @@ are not artifacts of the 90\% level.}
 \centering
 \includegraphics{figures/fig_episodes.pdf}
 \caption{Coverage of nominal 90\% intervals within eight crisis episodes
-(E9). RC improves the four worst episodes, with COVID up 9.3 points
+RC improves the four worst episodes, with COVID up 9.3 points
 (.786 $\to$ .879) and the 2025 tariff shock up 9.7 (.765 $\to$ .862),
 and tracks nominal more closely in episodes where ACI over-covers (2022).
 Flash-onset episodes (2015, 2024) move least, consistent with
@@ -301,7 +302,7 @@ excluded).
 
 \begin{table}[t]
 \centering
-\caption{Temporal robustness (E14): the same issued intervals evaluated
+\caption{Temporal robustness: the same issued intervals evaluated
 by subperiod, full panel. The paired stress gap is the date-clustered
 difference RC~$-$~ACI on common stress days.}
 \label{tab:temporal}

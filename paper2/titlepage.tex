@@ -1,0 +1,59 @@
+% Separate title page for double-anonymized IJF submission.
+% Build: latexmk -pdf titlepage.tex
+\documentclass[11pt]{article}
+\usepackage[margin=1.2in]{geometry}
+\usepackage{microtype}
+\begin{document}
+\thispagestyle{empty}
+
+\begin{center}
+{\LARGE Regime-Conditional Conformal Prediction for Realized Volatility
+Forecasting}
+
+\vspace{2em}
+{\large Shivam Arora$^{a,*}$ \quad Venkat Margapuri$^{a}$}
+
+\vspace{1em}
+$^{a}$Department of Computing Sciences, Villanova University,
+Villanova, PA, United States
+
+\vspace{0.5em}
+$^{*}$Corresponding author. \textit{E-mail:} sarora01@villanova.edu
+(S.~Arora); venkatasivakumar.margapuri@villanova.edu (V.~Margapuri).
+\end{center}
+
+\vspace{2em}
+\noindent\textbf{CRediT authorship contribution statement.}
+\textbf{Shivam Arora:} Conceptualization, Methodology, Software, Formal
+analysis, Investigation, Data curation, Writing -- original draft,
+Writing -- review \& editing, Visualization.
+\textbf{Venkat Margapuri:} Supervision, Writing -- review \& editing.
+
+\vspace{1em}
+\noindent\textbf{Declaration of competing interest.}
+The authors declare that they have no known competing financial
+interests or personal relationships that could have appeared to
+influence the work reported in this paper.
+
+\vspace{1em}
+\noindent\textbf{Funding.}
+This research did not receive any specific grant from funding agencies
+in the public, commercial, or not-for-profit sectors.
+
+\vspace{1em}
+\noindent\textbf{Declaration of generative AI use.}
+During the preparation of this work the authors used Claude (Anthropic)
+to assist with software development, literature search, and editing of
+the manuscript text. After using this tool, the authors reviewed and
+edited the content as needed and take full responsibility for the
+content of the published article.
+
+\vspace{1em}
+\noindent\textbf{Data availability.}
+Realized-volatility estimates are from the Chicago Booth Risk Lab;
+universe construction uses CRSP via WRDS (license-restricted, not
+redistributable); market state variables are from FRED and CBOE. Full
+replication code, with fixed seeds and a single driver script that
+regenerates every table and figure, accompanies the submission.
+
+\end{document}

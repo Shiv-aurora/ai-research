@@ -3,9 +3,10 @@
 \begin{figure}[t]
 \centering
 \includegraphics{figures/fig_dse_oracle.pdf}
-\caption{Coverage by days since entering the stress regime (E6b), for the
-causal calibrators and the leaky oracle. The day-2 pit (coverage near
-0.76--0.80 against 0.90 nominal) survives perfect hindsight about the
+\caption{Coverage by days since entering the stress regime, for the
+causal calibrators and a noncausal calibrator given smoothed full-sample
+regime memberships. The day-2 under-coverage (near
+0.76--0.80 against 0.90 nominal) survives hindsight about the
 regime path: onset under-coverage is score distribution shift, not regime
 misdetection.}
 \label{fig:dse}
@@ -15,14 +16,15 @@ Every method in this paper, at every configuration, under-covers the
 second day after the market enters the stress regime. The effect is worth
 a section because its persistence is informative.
 
-We attacked the pit with every conditioning scheme the framework can
+We conditioned on every scheme the framework can
 express: finer regime partitions ($K$ up to 5), freshness subgroups
 (splitting stress by days since entry), explicit transition regimes, and a
 forward-looking acute group driven by the option market's own term
 structure (VIX9D $>$ VIX). The acute group is genuinely useful elsewhere
 (it lifts stress \emph{upper-tail} coverage to 94.8\% against the 95\%
 target on the post-2012 sample), but day-2 coverage does not move. The
-oracle ablation closes the remaining escape route: a calibrator handed
+hindsight ablation rules out the one candidate explanation that
+remains: a calibrator handed
 smoothed full-sample regime memberships (one that \emph{knows},
 noncausally, that the market has entered stress and will remain there)
 still covers only 76\% of day-2 outcomes (Figure~\ref{fig:dse}).

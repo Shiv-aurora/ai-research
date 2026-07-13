@@ -10,10 +10,10 @@ structure}.
 \begin{figure}[t]
 \centering
 \includegraphics{figures/fig_decomposition.pdf}
-\caption{Mechanism decomposition (E6/E6b): stress-regime coverage as
+\caption{Mechanism decomposition: stress-regime coverage as
 ingredients are added. Pooling the cross-section closes most of the
 average gap; regime conditioning adds the remainder on this slice;
-its distinctive contributions are conditional (see text). Oracle regimes
+its distinctive contributions are conditional (see text). Hindsight regimes
 (full-sample smoothed memberships, deliberately noncausal) sit 0.2
 points above the causal filtered HMM and do not exceed the causal
 bins.}
@@ -22,7 +22,7 @@ bins.}
 
 \begin{table}[t]
 \centering
-\caption{Ablations (E6): stress coverage and width under reductions of
+\caption{Ablations: stress coverage and width under reductions of
 the full method. All rows use the zero-tuning adaptive configuration on
 the pool forecast unless stated.}
 \label{tab:ablations}
@@ -75,7 +75,7 @@ distribution (Table~\ref{tab:perstock}).
 
 \begin{table}[t]
 \centering
-\caption{Pooling-mechanism identification (E13). All arms fixed-rate
+\caption{Pooling-mechanism identification. All arms fixed-rate
 (no adaptivity), $K = 4$ bins, full panel. ``Fast'' arms move an
 effective $\approx 0.2$ per day (the pooled tracker's speed); ``slow''
 arms $\approx 0.002$.}
