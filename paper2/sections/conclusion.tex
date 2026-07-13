@@ -1,6 +1,6 @@
 \section{Limitations and conclusion}\label{sec:conclusion}
 
-\paragraph{Limitations.} Four are material. First, the residual: our
+\paragraph{Limitations.} Seven are material. First, the residual: our
 method removes most of the conditional coverage deficit, not all of it:
 88.1\% against 90\% nominal in stress, with the shortfall concentrated in
 the onset window of Section~\ref{sec:onset}, and 99\% VaR stress breaches
@@ -18,21 +18,37 @@ does not eliminate, the gap to latent-truth conditioning. Fourth,
 although the point-in-time universe removes survivorship in stock
 selection, the realized-volatility source begins in 2003 and large-cap
 liquid names are the easiest case for high-frequency measurement; broader
-cross-sections deserve a dedicated study.
+cross-sections deserve a dedicated study. Fifth, the finite-sample
+constants: evaluated at the observed stress sample the per-regime bound
+of Proposition~\ref{prop:adaptive} is vacuous
+(Remark~\ref{rem:numeric}); the theorems supply worst-case pathwise
+control, and the empirical tables, not the constants, carry the
+finite-sample evidence. Sixth, the temporal analysis slices causally
+issued intervals by subperiod; because the method has no fitting step
+this is the frozen-design evaluation, but it is not a holdout kept
+untouched during development. Seventh, the \emph{average} stress gain of
+regime conditioning over pooled $K = 1$ is small and not statistically
+significant; the case for regimes rests on the conditional structure
+--- transition coverage, VaR balance, per-regime guarantees --- which we
+quantify with dedicated uncertainty estimates rather than assert.
 
 \paragraph{Conclusion.} Uncertainty statements attached to volatility
 forecasts are consumed conditionally, on the bad days, and this
-paper shows that the standard way of producing them is valid only on
-average: online conformal intervals promised at 90\% deliver 83\% in
-stress regimes across 21 years and two hundred companies, with the
-deficit concentrated in the fast regime shifts of 2018--2025 and with
-foundation-model uncertainty failing in the
-same direction. A calibration layer that pools the cross-section within
+paper shows that the standard way of producing them can be valid only on
+average: over a 2010--2025 evaluation of two hundred companies, online
+conformal intervals promised at 90\% deliver 83\% on stress-regime days.
+The deficit is not uniform history: it is severe in the fast regime
+shifts of 2018--2025 (78.8\% stress coverage) and largely absent in the
+slower-building episodes of 2010--2017 (89.6\%), and foundation-model
+uncertainty fails in the same direction. Marginal validity conceals a
+conditional failure mode of the recent market era, which is exactly when
+such intervals are consumed. A calibration layer that pools the cross-section within
 online-estimated regimes and tunes itself removes most of that deficit at
 no cost in average interval score, carries finite-sample per-regime
 guarantees robust to arbitrary dependence, and maps directly to VaR,
-where it has the best stress-day breach rates and backtest pass shares
-of the methods compared. What
+where it is the only method compared whose calm and stress breach rates
+are statistically balanced at the 5\% level, with top-tier backtest
+pass shares. What
 it cannot do (cover the second day of a volatility spike) survives
 hindsight regime knowledge and option-implied signals, and we leave it as a
 precisely posed open problem. The practical reading for forecasters is

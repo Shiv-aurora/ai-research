@@ -31,19 +31,19 @@
 Volatility forecast intervals are consumed conditionally, on the bad
 days, yet are validated on average. On a point-in-time panel of the 100
 largest US stocks (2005--2025; 519{,}843 stock-days), online conformal
-intervals for next-day realized volatility are marginally valid yet
-cover only 83\% of stress-regime days at a 90\% promise, the shortfall
-concentrated in the upper tail. We introduce a forecaster-agnostic
-calibration layer: the calibration
-signal is pooled across the cross-section, thresholds are maintained per
-market regime, and per-regime learning rates are set by online expert
+intervals for next-day realized volatility are valid on average yet
+cover only 83\% of stress-regime days at a 90\% promise --- a shortfall
+concentrated in the upper tail and in the fast regime shifts of
+2018--2025. We introduce a forecaster-agnostic calibration layer that
+pools the calibration signal across stocks, maintains thresholds per
+market regime, and sets per-regime learning rates by online expert
 aggregation. Pooling supplies most of the average repair; regime
-conditioning adds the conditional structure and finite-sample per-regime
-frequency guarantees. Stress coverage rises from 82.9\% to 88.1\% with no
-detected cost in average interval score, and stress-day Value-at-Risk backtests
-improve on GARCH-$t$, CAViaR, and conformal baselines. Second-day-of-spike
-coverage resists every scheme we evaluate; we pose this onset window as
-an open problem.
+conditioning adds conditional structure and per-regime frequency
+guarantees. Stress coverage rises to 88.1\% at no detected cost in
+average interval score, and stress-day Value-at-Risk backtests improve
+on GARCH-$t$, CAViaR, and conformal baselines. Second-day-of-spike
+coverage resists every scheme evaluated; we pose this onset window as an
+open problem.
 \end{abstract}
 
 \begin{highlights}
@@ -56,7 +56,7 @@ an open problem.
 \item Stress-day VaR backtests improve on GARCH-$t$, CAViaR, and
   conformal baselines.
 \item Day-2-of-spike coverage resists every scheme evaluated: a
-  quantified limit.
+  persistent onset limitation.
 \end{highlights}
 
 \begin{keyword}
@@ -75,6 +75,14 @@ Conformal prediction \sep Realized volatility \sep Regime switching \sep Uncerta
 \input{sections/onset}
 \input{sections/conclusion}
 \input{sections/appendix_algorithm}
+
+\section*{Declaration of generative AI and AI-assisted technologies in
+the writing process}
+During the preparation of this work the authors used Claude (Anthropic)
+to assist with software development, literature search, and editing of
+the manuscript text. After using this tool, the authors reviewed and
+edited the content as needed and take full responsibility for the
+content of the published article.
 
 \bibliographystyle{elsarticle-harv}
 \bibliography{refs}

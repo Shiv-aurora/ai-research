@@ -1,19 +1,22 @@
 \section{Data and evaluation design}\label{sec:data}
 
 \paragraph{Universe.} The panel is the top 100 US companies by market
-capitalization, reconstituted each January from CRSP point-in-time data:
+capitalization, reconstituted each January from CRSP point-in-time data
+\citep{crsp}:
 common shares (share codes 10/11) on NYSE, AMEX, or NASDAQ, capitalization
 aggregated across share classes at the company level as of the prior
 December month-end. Companies that later delist remain in the panel for
 the years they qualified (Lehman Brothers' final observation is
-2008-09-17), so no selection on survival contaminates the sample. Over
+2008-09-17), so annual point-in-time reconstruction avoids ex post
+survivor selection. Over
 2005--2025 the universe contains 223 distinct companies (mean turnover
 10.6 names per year; 42 members later delisted), for 519{,}843 stock-days.
 Identity is keyed by CRSP PERMNO end-to-end, avoiding recycled-ticker
 mismatches by construction.
 
 \paragraph{Realized volatility.} Daily realized variances are the Chicago
-Booth Risk Lab estimates computed from TAQ high-frequency data: QMLE
+Booth Risk Lab estimates \citep{risklab} computed from TAQ
+high-frequency data: QMLE
 volatilities \citep{xiu2010quasi, da2021moving} alongside 5-minute
 subsampled realized variance, retrieved by PERMNO. We forecast log
 5-minute RV; results are insensitive to the estimator choice. Corporate
@@ -21,22 +24,26 @@ action duplicates are deduplicated with uniqueness asserts, and a
 delisting-aware guard verifies that every history terminating early
 matches a CRSP delisting event.
 
-\paragraph{State variables.} Market state uses FRED series (VIX, term
-spread, Moody's credit spread) and CBOE term-structure indices (VIX9D),
-all as available at the close of day $t$; per-stock and market RV
+\paragraph{State variables.} Market state uses FRED series \citep{fred}
+(VIX, term spread, Moody's credit spread) and CBOE term-structure
+indices \citep{cboe} (VIX9D), all as available at the close of day $t$; per-stock and market RV
 percentiles are trailing 750-day ranks. Cross-sectional dispersion enters
 with a one-day lag.
 
 \paragraph{Walk-forward protocol.} All forecasters are trained on
 expanding windows with quarterly refits and a hard assertion that
 $\max(\text{train dates}) < \min(\text{test dates})$; calibration is fully
-online with a 100-day warmup; evaluation covers 2010--2025. Regime slices
-for evaluation are trailing VIX-percentile bins: calm ($\le$0.5), normal
-(0.5--0.8), elevated (0.8--0.95), stress ($>$0.95); the stress slice
-contains 14{,}085 stock-days spanning 2011, 2015, 2018, 2020, 2022, 2024,
-and 2025 episodes. Method comparisons are computed on the common sample on
-which all ten methods are defined; Table~\ref{tab:flow} accounts for
-every exclusion between the full panel and that sample. The reduction is
+online with a 100-day warmup; evaluation covers 2010--2025 (the data
+span 2005--2025; the first five years are consumed by forecaster
+training and calibration warmup), 4{,}002 evaluation dates in total.
+Regime slices for evaluation are trailing VIX-percentile bins: calm
+($\le$0.5), normal (0.5--0.8), elevated (0.8--0.95), stress ($>$0.95);
+the stress slice contains 14{,}085 stock-days on 150 distinct dates
+spanning 2011, 2015, 2018, 2020, 2022, 2024, and 2025 episodes. Method comparisons are computed on the common sample on
+which all eleven methods are defined; Table~\ref{tab:flow} accounts for
+every exclusion between the full panel and that sample; the common
+sample is unchanged by the addition of new baselines because each new
+method's usable set contains it. The reduction is
 driven almost entirely by generic requirements shared across methods
 (forecaster training history, calibration warmup) and by the most
 data-hungry \emph{baseline}: HAR quantile regression requires 800
@@ -49,7 +56,7 @@ and figure regenerates from one driver script.
 
 \begin{table}[t]
 \centering
-\caption{Sample flow: from the full panel to the ten-method
+\caption{Sample flow: from the full panel to the eleven-method
 common comparison sample. Each ``usable by'' row counts stock-days on
 which that method produces a non-warmup interval.}
 \label{tab:flow}
@@ -62,6 +69,7 @@ Full panel 2005--2025 & 519{,}843 \\
 With point forecast and target & 394{,}213 \\
 Usable by ACI / DtACI / SF-OGD / TCP-RM & 375{,}072 \\
 Usable by KNN-state / XS-panel / pooled $K=1$ / RC (both) & 365{,}569 \\
+Usable by POGO (per-stock length filter) & 356{,}172 \\
 Usable by HAR-QREG (800-day training minimum) & 269{,}705 \\
 Common sample (intersection) & 269{,}705 \\
 \bottomrule

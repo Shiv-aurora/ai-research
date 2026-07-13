@@ -9,6 +9,8 @@ Methods (all two-sided at alpha=0.10, walk-forward, common sample):
                         rival to discrete regimes; HopCPT/NexCP spirit)
   xs_panel              cross-sectional split-conformal + adaptive level
                         (Tu-Giesecke 2026 spirit; panel pooling, no regimes)
+  pogo                  parameter-free group-conditional coin-betting
+                        (Bharti et al. 2026), per stock, our hard VIX bins
   pooled_k1             our machinery with K=1 (pooling without regimes)
   rc_hand               pooled regime-conditional, hand-tuned rates
   rc_adaptive           pooled regime-conditional, adaptive rates (ours)
@@ -33,6 +35,7 @@ from src.conformal.dtaci import run_dtaci
 from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.conformal.sfogd import run_sfogd
 from src.conformal.panel_xs import run_panel_xs
+from src.conformal.pogo import run_pogo_panel
 from src.conformal.similarity import run_knn_state_conformal
 from src.conformal.tcp import run_tcp_rm
 from src.eval.coverage import coverage_by_state, marginal_coverage
@@ -90,6 +93,16 @@ def _stock_worker(args):
     return method, g[COLS]
 
 
+def _pogo_worker(args):
+    """One POGO instance per stock (module-level for spawn)."""
+    g, member = args
+    g = g.dropna(subset=["target", "pool"]).sort_values("date")
+    if len(g) <= WARMUP + 50:
+        return None
+    return run_pogo_panel(g, member, "pool", alpha=ALPHA,
+                          warmup_days=WARMUP)
+
+
 def panel_bounds(preds, member, **kw) -> pd.DataFrame:
     res = run_panel_mondrian(preds, member, "pool", alpha=ALPHA,
                              warmup_days=WARMUP, **kw)
@@ -142,6 +155,18 @@ def main() -> None:
     xs_b["hi"] = xs["pool"] + xs["q_hi"] * xs["sigma_hat"]
     xs_b["warm"] = xs["warmup"]
     bounds["xs_panel"] = xs_b
+    # parameter-free group-conditional (Bharti et al.), given OUR bins:
+    # the closest published rival on the group-conditional axis. POGO is
+    # a single-stream algorithm, so the faithful port runs one instance
+    # per stock (its per-group guarantee then holds per stock-stream).
+    pg_jobs = [(g, member) for _, g in preds.groupby("ticker")]
+    pg_parts = [r for r in pmap(_pogo_worker, pg_jobs) if r is not None]
+    pg = pd.concat(pg_parts, ignore_index=True)
+    pg_b = pg[["ticker", "date", "target"]].copy()
+    pg_b["lo"] = pg["pool"] - pg["q_lo"] * pg["sigma_hat"]
+    pg_b["hi"] = pg["pool"] + pg["q_hi"] * pg["sigma_hat"]
+    pg_b["warm"] = pg["warmup"]
+    bounds["pogo"] = pg_b
 
     # common evaluation sample: (ticker, date) present & non-warm everywhere
     keys, flow = None, []
@@ -158,6 +183,7 @@ def main() -> None:
     print(sample_flow.to_string(index=False))
 
     rows, daily_is, cov_frames = [], {}, {}
+    daily_cov_rows: list[pd.DataFrame] = []
     for name, b in bounds.items():
         d = b.merge(keys, on=["ticker", "date"])
         d = d.merge(state, on=["ticker", "date"], how="left")
@@ -181,6 +207,11 @@ def main() -> None:
                                   ALPHA)
         daily_is[name] = d.groupby("date")["is_"].mean()
         cov_frames[name] = d[["ticker", "date", "vix_pctl", "covered"]]
+        daily_cov_rows.append(
+            d.groupby("date")
+            .agg(covered=("covered", "mean"), n=("covered", "size"),
+                 vix_pctl=("vix_pctl", "first"))
+            .assign(method=name).reset_index())
 
     summary = pd.DataFrame(rows).set_index("method")
     print("\n=== E2 main table (alpha=0.10, common sample) ===")
@@ -244,6 +275,10 @@ def main() -> None:
     sig.to_csv(out / "e2_clustered_se.csv", index=False)
     sample_flow.to_csv(out / "e2_sample_flow.csv", index=False)
     per_stock.to_csv(out / "e2_per_stock_coverage.csv", index=False)
+    # daily cross-sectional coverage means per method (common sample):
+    # input for episode-block bootstrap / HAC-lag sensitivity (e16)
+    pd.concat(daily_cov_rows, ignore_index=True).to_parquet(
+        out / "e2_daily_coverage.parquet", index=False)
     print("\nsaved -> reports/e2_full_summary.csv, reports/e2_full_mcs.csv,"
           " reports/e2_clustered_se.csv, reports/e2_sample_flow.csv,"
           " reports/e2_per_stock_coverage.csv")

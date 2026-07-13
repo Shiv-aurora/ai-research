@@ -54,10 +54,23 @@ def christoffersen_independence(exceed: np.ndarray) -> dict:
     return {"stat": float(lr), "p": float(1 - stats.chi2.cdf(lr, df=1))}
 
 
+def christoffersen_cc(exceed: np.ndarray, p: float) -> dict:
+    """Combined conditional-coverage LR: Kupiec POF + first-order
+    independence, chi2 with 2 df (Christoffersen 1998)."""
+    k = kupiec_pof(exceed, p)
+    ind = christoffersen_independence(exceed)
+    if np.isnan(k["stat"]) or np.isnan(ind["stat"]):
+        return {"stat": np.nan, "p": np.nan}
+    lr = k["stat"] + ind["stat"]
+    return {"stat": float(lr), "p": float(1 - stats.chi2.cdf(lr, df=2))}
+
+
 def dq_test(exceed: np.ndarray, p: float, var_series: np.ndarray | None = None,
-            n_lags: int = 4) -> dict:
+            n_lags: int = 4, extra: np.ndarray | None = None) -> dict:
     """Engle-Manganelli DQ: regress hit_t - p on lagged hits (and VaR level);
-    H0: all coefficients zero (correct unconditional level AND no dynamics)."""
+    H0: all coefficients zero (correct unconditional level AND no dynamics).
+    `extra` adds caller-supplied regressors (e.g. a stress-regime
+    indicator, making the test regime-aware)."""
     hit = exceed.astype(float) - p
     n = len(hit)
     if n <= n_lags + 5:
@@ -68,6 +81,12 @@ def dq_test(exceed: np.ndarray, p: float, var_series: np.ndarray | None = None,
     X = [np.ones(n - n_lags), *rows]
     if var_series is not None:
         X.append(var_series[n_lags:])
+    if extra is not None:
+        extra = np.atleast_2d(np.asarray(extra, dtype=float))
+        if extra.shape[0] == n:
+            extra = extra.T
+        for row in extra:
+            X.append(row[n_lags:])
     X = np.column_stack(X)
     y = hit[n_lags:]
     XtX = X.T @ X
@@ -81,17 +100,25 @@ def dq_test(exceed: np.ndarray, p: float, var_series: np.ndarray | None = None,
 
 
 def backtest_panel(df: pd.DataFrame, exceed_col: str, p: float,
-                   group_col: str = "ticker") -> pd.DataFrame:
-    """Per-group backtests + pooled exceedance rate; returns one row per group."""
+                   group_col: str = "ticker",
+                   stress_col: str | None = None) -> pd.DataFrame:
+    """Per-group backtests + pooled exceedance rate; returns one row per
+    group. stress_col (0/1 indicator) adds a regime-aware DQ variant with
+    the indicator as an extra regressor."""
     rows = []
     for g, gdf in df.groupby(group_col):
         e = gdf[exceed_col].values
-        rows.append({
+        row = {
             group_col: g,
             "rate": e.mean(),
             "kupiec_p": kupiec_pof(e, p)["p"],
-            "christoffersen_p": christoffersen_independence(e)["p"],
+            "independence_p": christoffersen_independence(e)["p"],
+            "cc_p": christoffersen_cc(e, p)["p"],
             "dq_p": dq_test(e, p)["p"],
             "n": len(e),
-        })
+        }
+        if stress_col is not None:
+            row["dq_stress_p"] = dq_test(
+                e, p, extra=gdf[stress_col].values.astype(float))["p"]
+        rows.append(row)
     return pd.DataFrame(rows)

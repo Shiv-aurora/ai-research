@@ -40,6 +40,14 @@ STEPS: list[tuple[str, list[str]]] = [
     ("e13_pooling_mechanism", ["reports/e13_pooling_mechanism.csv"]),
     ("e14_temporal_holdout", ["reports/e14_subperiod.csv",
                               "reports/e14_loco.csv"]),
+    ("e15_expanded_grid", ["reports/e15_expanded_grid.csv",
+                           "reports/e15_expanded_grid_tests.csv"]),
+    ("e16_bounds_inference", ["reports/e16_bound_values.csv",
+                              "reports/e16_episode_bootstrap.csv"]),
+    ("e17_k1_vs_k4",      ["reports/e17_regime_slices.csv",
+                           "reports/e17_dispersion.csv"]),
+    ("e18_onset_uncertainty", ["reports/e18_dse_ci.csv",
+                               "reports/e18_pareto.csv"]),
 ]
 
 

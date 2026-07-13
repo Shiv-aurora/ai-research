@@ -13,7 +13,7 @@ them, and the script that regenerates them. All artifacts live in `reports/`
 Evaluation conventions: alpha=0.10 two-sided unless stated; regimes sliced
 by trailing-750d VIX percentile bins calm(<=.5)/normal(.5-.8)/
 elevated(.8-.95)/stress(>.95); eval sample 2010+ after 100-day calibration
-warmup; ~375k out-of-sample stock-days (E2 seven-method common sample:
+warmup; ~375k out-of-sample stock-days (E2 eleven-method common sample:
 269,705), panel 2005-2025: 519,843 stock-days.
 
 Universe: CRSP point-in-time top-100 by market cap, rebalanced each January
@@ -52,10 +52,12 @@ Script: `scripts/e1_prototype.py`.
 
 ## E2 — Main interval comparison + MCS (Table 2)
 
-Ten methods, common 269,705 stock-day sample, alpha=0.10 (R4 run: adds
-tcp_rm = Aich et al. rolling conformal + Robbins-Monro offset, ported to
-our score scale, and xs_panel = Tu-Giesecke-spirit cross-sectional
-split-conformal with adaptive level):
+Eleven methods, common 269,705 stock-day sample, alpha=0.10 (R4 added
+tcp_rm = Aich et al. rolling conformal + Robbins-Monro offset and
+xs_panel = Tu-Giesecke-spirit cross-sectional split-conformal; R6 added
+pogo = Bharti et al. parameter-free group-conditional coin-betting, run
+per stock — its single-stream setting — with our hard VIX bins as
+groups):
 
 | method | marginal | stress | stress upper | width | width stress |
 |---|---|---|---|---|---|
@@ -69,13 +71,22 @@ split-conformal with adaptive level):
 | rc_hand | .8976 | **.8818** | **.9405** | 1.696 | 2.251 |
 | rc_adaptive | .8992 | **.8812** | **.9398** | 1.726 | 2.337 |
 | pooled_k1 | .9002 | .8731 | .9414 | 1.728 | 2.268 |
+| pogo | .8577 | .7706 | .8854 | 1.743 | 2.140 |
 
 tcp_rm is the best per-stock baseline in stress (.849, still 3.1pp below
 rc_adaptive, t=2.21 p=.027 — the only pairwise gap not significant at 1%)
 but has the widest per-stock intervals (rolling 60-day window forgets calm
 scores wholesale). xs_panel shows cross-sectional information ALONE does
 not fix stress (.827 ~= aci) — pooling must sit inside regime-conditional
-tracking. MCS eliminates sfogd, tcp_rm, AND xs_panel (p=.000).
+tracking. MCS eliminates sfogd, tcp_rm, xs_panel, AND pogo (p=.000).
+
+pogo (POGO): undercovers everywhere (marginal .858, stress .771,
+-11.0pp vs rc, t=8.4) — CONSISTENT with its own parameter-free bound,
+which permits ~2.5pp/side slack at T~3,800 rounds and is vacuous for a
+~150-round per-stock stress group. Reading: the group-conditional
+guarantee interface alone does not bite at equity horizons; coverage
+comes from the tracking loop. (A pooled sequential-round port of POGO
+does worse, .832 marginal — not reported in the paper.)
 
 pooled_k1 (K=1, no regimes) now sits IN the main table: regimes' further
 average stress contribution is +0.8pp (t=0.63, p=.53 clustered — not
@@ -125,12 +136,22 @@ Stress-day breach rates (nominal 5 / 1):
 | garch_t | 11.88% | 4.06% | .42 |
 | caviar | 12.63% | 5.38% | .35 |
 | aci | 8.62% | 3.06% | .48 |
-| rc_panel (hand) | 5.56% | 1.62% | .70 |
-| rc_adaptive | **5.73%** | **1.76%** | **.73** |
+| pooled_k1 | 3.71% | **1.17%** | .68 |
+| rc_panel (hand) | 5.49% | 1.61% | .64 |
+| rc_adaptive | **5.73%** | 1.76% | .66 |
 
-rc_adaptive also has the best marginals (5.00 / 1.07) and the best
-Kupiec/Christoffersen pass rates. The two most-cited classical VaR models
-(GARCH-t, CAViaR) fail on stress days like everything else.
+R6 upgrade: columns now Kupiec / Christoffersen INDEPENDENCE (honest
+relabel — the old 'christoffersen' column WAS the independence test) /
+combined CC (2 df) / DQ / DQ-stress (stress-indicator regressor), plus
+a date-clustered calm-vs-stress balance z-test and a pooled K=1 arm.
+
+KEY FINDING (the statistically unambiguous regime benefit): at 5% VaR,
+every baseline overshoots stress (balance z = 2.1-3.9, all p<.05);
+pooled_k1 INVERTS (calm 5.3 vs stress 3.7, z=-1.8); only rc heads are
+balanced (5.0/5.7, z=0.3-0.5). At 99%, pooled_k1 posts the best CC/DQ-S
+pass shares (.91/.73 vs rc .87/.64) — deep-tail data-splitting cost,
+reported honestly at both levels. rc_adaptive marginals 5.00 / 1.07.
+The DQ pass column above is DQ-stress.
 Artifact: `reports/e3_var_summary.csv`. Script: `scripts/e3_var.py`.
 
 ## E4 — Foundation models have the same disease
@@ -301,6 +322,106 @@ episode year is dropped (max move 0.4pp); ACI never above .8536 (best
 case = COVID dropped). No single crisis drives the result.
 Artifacts: `reports/e14_subperiod.csv`, `reports/e14_subperiod_gap.csv`,
 `reports/e14_loco.csv`. Script: `scripts/e14_temporal_holdout.py`.
+
+## E15 — Expanded rate grid: the fast-rate objection closed (R6)
+
+The referee objection: E13 showed the pooled tracker's effective stress
+rate (~0.2/obs) exceeds the adaptive expert grid's max (0.064), so the
+headline gap might exist only because per-stock baselines were denied
+the rates they needed. Answer: extend the grid to 0.512
+(+0.128/0.256/0.512) and rerun everything.
+
+| arm | grid | stress | diff vs RC (clustered) | eff. stress rate |
+|---|---|---|---|---|
+| RC K=4 pooled summed | std | .8828 | — | .010 |
+| RC K=4 pooled summed | exp | .8827 | -0.0pp, p=.99 | .021 |
+| pooled K=1 | exp | .8721 | -0.9, p=.43 | .033 |
+| pooled K=4 averaged errors | exp | .8497 | -3.3, p=.0002 | .244 |
+| per-stock K=4 | std | .7996 | -8.3, p<.0001 | .029 |
+| per-stock K=4 | exp | .8366 | -4.6, p<.0001 | .175 |
+| per-stock K=1 | exp | .8429 | -3.9, p=.005 | .136 |
+| DtACI raw-score, etas to 0.8 | exp | .8548 | -2.7, p=.039 | — |
+
+Readout: the per-stock aggregator FINDS and USES the fast rates (issued
+eff. rate .175 in stress) and recovers about half the deficit
+(.800 → .837) — but every fast-rate route still trails RC by 2.7–4.6pp,
+all significant. RC itself is insensitive to the grid ceiling.
+Mechanism refinement over E13: effective daily speed is necessary but
+not sufficient; the pooled summed update takes n_t small steps per day
+(same daily speed, ~1/n̄ gradient variance), and a single stream at rate
+0.2 tracks its own noise. Paper: tab:expgrid + "Fast rates are necessary
+but not sufficient" paragraph in ablations.
+Artifacts: `reports/e15_expanded_grid.csv`,
+`reports/e15_expanded_grid_tests.csv`, `reports/e15_eff_eta.csv`.
+Script: `scripts/e15_expanded_grid.py`.
+
+## E16 — Numeric theorem bounds + inference robustness (R6)
+
+A-priori per-regime deviation bounds at the paper's constants (B=12,
+eta_max=.064, eta_corr=.002, n_bar=100):
+
+| regime | N_k | Prop 1 | Prop 2 |
+|---|---|---|---|
+| calm | 230,278 | .105 | .066 |
+| normal | 99,752 | .161 | .153 |
+| elevated | 49,590 | .163 | .309 |
+| stress | 14,593 | .171 | **1.048 (vacuous)** |
+
+Stated honestly in Remark rem:numeric + limitations item five: the
+theorems are worst-case pathwise control; empirical tables carry the
+finite-sample evidence (realized deviations are observable exactly via
+the telescoped identity and are ~100x inside the bounds).
+
+Episode-block bootstrap (18 stress episodes, gap>20 trading days,
+10,000 resamples) for the stress gap rc_adaptive − baseline:
+ACI +5.2pp CI [−0.1, +9.7] p=.057; DtACI +4.5 p=.063; SF-OGD +4.1
+p=.077; TCP-RM +3.2 p=.108; XS-panel +5.4 CI [+2.8, +8.9] p=.0004;
+pooled_k1 +0.8 p=.48. Interpretation: the gap vs per-stock trackers is
+era-heterogeneous (huge post-2018, ~0 before), so 18 episodes give a
+borderline CI; vs XS-panel the deficit is uniform → significant. Paper
+reports BOTH treatments with the insurance framing.
+
+HAC lag sensitivity (RC−ACI stress): rule lag 4 t=3.05 p=.002; lags
+0/5/10/22 all p<.02; lag 66 p=.072.
+
+Artifacts: `reports/e16_bound_values.csv`,
+`reports/e16_episode_bootstrap.csv`, `reports/e16_hac_sensitivity.csv`.
+Script: `scripts/e16_bounds_inference.py`.
+
+## E17 — K=1 vs K=4: the distinctive-benefit inference package (R6)
+
+Identical adaptive calibrator, only K varied. Honest verdict: on the
+interval side point estimates consistently favor K=4 but are
+underpowered; the statistically unambiguous regime benefit is VaR
+balance (see E3).
+
+- Per-regime coverage diffs: all ns (stress +0.67pp, p=.53). Interval
+  scores by regime: all ns (stress −0.038, p=.62 — favoring K=4).
+- Day-2 transition coverage: .794 vs .734, diff +5.3pp, HAC CI
+  [−3.8, +14.5], p=.25 — only 15 day-2 dates.
+- Regime-calibration dispersion (weighted RMS dev from .90): .0034 (K4)
+  vs .0054 (K1), diff ns (block bootstrap p=.44); max-abs .017 vs .025,
+  p=.52.
+- 57 market-level stress entries.
+Paper: "What regimes add, with uncertainty attached" paragraph in
+ablations. Artifacts: `reports/e17_regime_slices.csv`,
+`reports/e17_dse_diff.csv`, `reports/e17_dispersion.csv`.
+
+## E18 — Onset uncertainty + widening Pareto (R6)
+
+- Sample honesty: 57 entries, 25 episodes; day-2 = 1,320 stock-days on
+  14 DATES. Day-2 coverage .797, HAC se .072 → CI [.65, .94] does not
+  exclude nominal. Support = stability: leave-one-episode-out range
+  [.764, .848]; day-1 .851 ± .041; pit present in every method/era.
+- Trajectory: issued upper threshold 2.30 (day1) → 2.37 (day2) → 3.78
+  (day3); day-2 realized score mean 1.15 (2x day 1), upper-miss 16.7%.
+  The tracker makes the full move one day late.
+- Pareto overlay (causal ×m widening on prev-day dse 1–3, no feedback):
+  m=1.25 → day-2 .858 at +0.9% stress-interior IS; m=1.5 → .895
+  (nominal) at +2.5% IS and +50% onset width; m=2 → .930. The window is
+  unpurchased, not uncoverable; aggregator declines because day-2 = 14
+  of 4,002 dates. Open problem reframed: selective onset widening.
+Paper: new subsection sec:onset-pareto. Artifacts: `reports/e18_*.csv`.
 
 ## E12 — Alpha robustness
 

@@ -30,7 +30,10 @@ quarter, issuing \emph{filtered} probabilities $\pi_t(k)$) yields the
 same conclusions (Section~\ref{sec:oracle}), so transparency costs
 nothing. An optional forward-looking \emph{acute} group, active when the
 9-day implied volatility exceeds 30-day (VIX9D/VIX $> 1$), sharpens the
-stress upper tail (Section~\ref{sec:onset}). The calibrator consumes any
+stress upper tail (Section~\ref{sec:onset}); it \emph{overrides} the VIX
+bin on the days it fires, so the result is a five-state mutually
+exclusive hard partition, still within the setting of
+Section~\ref{sec:theory}. The calibrator consumes any
 membership vector $\pi_t \in \Delta^{K-1}$; nothing assumes the regimes
 are correct, and Section~\ref{sec:theory} states guarantees relative to
 the estimated memberships.
@@ -90,7 +93,7 @@ learning rates, the choice we found most consequential and least
 principled to make by hand; its remaining constants (the rate grid, the
 aggregation rate, the mixing coefficient, and the corrector rate) are
 fixed a priori, identical across all experiments, and listed in the
-complete algorithm specification of Appendix~\ref{app:algorithm}. Its
+complete algorithm specification of \ref{app:algorithm}. Its
 learned effective rates reproduce what
 hand-tuning found: stress-regime rates roughly twice calm rates, and
 1\%-tail rates roughly twice 5\%-tail rates

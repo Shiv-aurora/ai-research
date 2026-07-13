@@ -77,7 +77,8 @@ def run_panel_mondrian(
     meta_eta: float = 5.0,
     mix_sigma: float = 0.01,
     eta_corr: float = 0.002,
-    average_errors: bool = False,   # fixed-rate path only (e13 ablation)
+    average_errors: bool = False,   # per-DAY step on the mean error (e13
+                                    # fixed-rate arm; e15 adaptive arm)
 ) -> pd.DataFrame:
     """Pooled panel calibrator over a walk-forward predictions frame.
 
@@ -177,13 +178,14 @@ def run_panel_mondrian(
         # pooled per-regime update: one per-observation step per stock-day
         # (sum over the cross-section; eta is a per-observation step size)
         n = len(block)
+        denom = n if average_errors else 1
         if adaptive:
             # per-expert own-threshold misses and pinball losses, (n, K, E)
             def _bank_step(scores, Q, LW):
                 eff = Q[None, :, :] + dl[:, None, None]
                 diff = scores[:, None, None] - eff
                 Q += (etas_g[None, :] * pi[:, None]
-                      * ((diff > 0).sum(axis=0) - a_side * n))
+                      * ((diff > 0).sum(axis=0) - a_side * n) / denom)
                 pb = np.where(diff > 0, tau * diff,
                               (tau - 1.0) * diff).mean(axis=0)
                 LW -= meta_eta * pi[:, None] * pb
@@ -197,14 +199,11 @@ def run_panel_mondrian(
                 return Q, np.log(w)
 
             Q_hi, LW_hi = _bank_step(s, Q_hi, LW_hi)
-            c_hi += eta_corr * pi * ((~cov_hi).sum() - a_side * n)
+            c_hi += eta_corr * pi * ((~cov_hi).sum() - a_side * n) / denom
             if not one_sided:
                 Q_lo, LW_lo = _bank_step(-s, Q_lo, LW_lo)
-                c_lo += eta_corr * pi * ((~cov_lo).sum() - a_side * n)
+                c_lo += eta_corr * pi * ((~cov_lo).sum() - a_side * n) / denom
         else:
-            # average_errors=True divides the summed excess by n (a per-DAY
-            # step on the mean error) — the e13 mechanism-identification arm
-            denom = n if average_errors else 1
             if not one_sided:
                 q_lo += eta * pi * ((~cov_lo).sum() - a_side * n) / denom
             q_hi += eta * pi * ((~cov_hi).sum() - a_side * n) / denom

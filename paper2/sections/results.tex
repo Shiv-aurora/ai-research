@@ -3,8 +3,9 @@
 \subsection{Point-forecast sanity}
 
 Table~\ref{tab:e0} verifies the fixed forecasting layer is not degraded:
-the online pool ties HAR and LightGBM on QLIKE and log-RMSE (panel
-DM test with date-clustered HAC errors, pool vs HAR $p = 0.054$). No
+the online pool is statistically indistinguishable from both of its
+members on QLIKE (panel DM tests with date-clustered HAC errors: pool
+vs.\ HAR $p = .054$, pool vs.\ LightGBM $p = .387$). No
 accuracy claim is made anywhere in the paper; this table exists so that
 calibration results cannot be attributed to a weak or strong point model.
 
@@ -38,33 +39,55 @@ of the conditional deficit while holding other regimes at nominal.}
 \label{fig:coverage}
 \end{figure}
 
-Table~\ref{tab:main} is the paper's central comparison: ten methods on
-the identical common sample. The baselines span the online conformal
+Table~\ref{tab:main} is the paper's central comparison: eleven methods
+on the identical common sample. The baselines span the online conformal
 family (ACI, DtACI, SF-OGD), the recent rolling-conformal method of
 \citet{aich2025temporal} with its Robbins--Monro coverage offset (TCP-RM,
 ported to our score scale with its published constants), a classical
 direct-quantile model (HAR quantile regression), a similarity-weighted
 conformal method (KNN-state, in the spirit of HopCPT/NexCP: thresholds
-from the $k = 250$ most similar past days by market state), and a
+from the $k = 250$ most similar past days by market state), a
 cross-sectional split-conformal baseline in the spirit of
 \citet{wtqa2026panel} (XS-panel: each day's thresholds from the pooled
 score cross-sections of the previous five days, with an adaptive
-miscoverage level). Every marginal coverage sits
+miscoverage level; their contemporaneous-outcome construction is not
+available when all next-day forecasts are issued simultaneously, so this
+is an adaptation to our information structure, not the original
+algorithm), and the parameter-free group-conditional coin-betting method
+of \citet{bharti2026parameterfree} (POGO, run per stock as its
+single-stream setting specifies, with our hard VIX bins supplied as its
+groups --- the exact interface its guarantee requires). Every marginal coverage sits
 within half a point of 90\%; every baseline's stress coverage sits between
 81.5\% and 84.9\%. The two regime-conditional variants (hand-tuned
 rates and the zero-tuning adaptive configuration) reach 88.1--88.2\%,
 with the stress upper tail at 94.0\% against 95\% nominal versus
 84.8--91.0\% for the baselines. These differences carry real
-uncertainty, and we quantify it in the way the dependence structure
-demands: daily cross-sectional means with Newey--West standard errors
-over the resulting series (clustering by date). Stress coverage is
+uncertainty, and we quantify it two ways, matched to where the
+dependence lives. First, \emph{date-clustered HAC}: coverage indicators
+are averaged within each date (removing all cross-sectional dependence),
+and the resulting daily series --- for stress slices, the 150 stress
+dates in event time --- gets a Newey--West variance with Bartlett kernel
+and the $\lfloor 4(n/100)^{2/9} \rfloor$ lag rule (lag 4 here); reported
+$\pm$ values are one standard error. Stress coverage is
 $.881 \pm .019$ for RC against $.830 \pm .026$ for ACI; the paired
-stress-coverage difference is $+5.1$ points against ACI
-($t = 3.05$, $p = .002$), significant at the 1\% level against every
-baseline except TCP-RM ($+3.1$ points, $p = .027$), while marginal
-coverage differences among the conformal
-methods are statistically zero ($|t| < 0.5$), exactly as marginal
-validity predicts.
+stress-coverage difference is $+5.1$ points against ACI ($t = 3.05$,
+$p = .002$, stable for lags 0--22 and $p = .07$ at lag 66), significant
+at the 1\% level against every per-stock baseline except TCP-RM ($+3.1$
+points, $p = .027$), while marginal coverage differences among the
+conformal methods are statistically zero ($|t| < 0.5$), exactly as
+marginal validity predicts. Second, and more conservatively,
+\emph{episode-block resampling}: stress days group into 18 contiguous
+episodes (gaps above 20 trading days), and resampling episodes with
+replacement (10{,}000 draws) gives $+5.2$ points against ACI with a
+95\% interval of $[-0.1, +9.7]$ ($p = .057$). The widening is not an
+artifact: the gap genuinely differs across episodes --- large in the
+fast shifts of 2018--2025, absent to slightly negative before
+(Table~\ref{tab:temporal}) --- and 18 episodes is all the
+twenty-one-year sample contains. Against XS-panel, whose deficit is
+uniform across eras, the episode-resampled interval excludes zero
+($[+2.8, +8.9]$, $p < .001$). We report both inferential treatments and
+let them mean what they mean: the repair is era-dependent insurance,
+overwhelming when fast regime shifts occur and free when they do not.
 
 Because the guarantee is panel-level (Remark~\ref{rem:panel}), a pooled
 threshold could in principle hide stock-level failures behind a valid
@@ -113,6 +136,7 @@ TCP-RM & .900 & .899 & .849 & .919 & 1.79 & 2.07 \\
 HAR-QREG & .890 & .886 & .815 & .848 & 1.65 & 1.71 \\
 KNN-state & .894 & .892 & .829 & .908 & 1.67 & 1.84 \\
 XS-panel & .900 & .907 & .827 & .933 & 1.80 & 1.99 \\
+POGO & .858 & .871 & .771 & .885 & 1.74 & 2.14 \\
 Pooled, $K=1$ (no regimes) & .900 & .901 & .873 & .941 & 1.73 & 2.27 \\
 RC (hand-tuned) & .898 & .899 & \textbf{.882} & \textbf{.941} & 1.70 & 2.25 \\
 RC (adaptive) & .899 & .900 & \textbf{.881} & \textbf{.940} & 1.73 & 2.34 \\
@@ -120,7 +144,7 @@ RC (adaptive) & .899 & .900 & \textbf{.881} & \textbf{.940} & 1.73 & 2.34 \\
 \end{tabular}
 \end{table}
 
-Five readings of Table~\ref{tab:main} matter. First, pooling without
+Six readings of Table~\ref{tab:main} matter. First, pooling without
 regimes already does most of the average work: the pooled $K = 1$ row
 reaches 87.3\% stress coverage, and the regime layer's further average
 contribution is $+0.8$ points (not significant under date clustering,
@@ -133,7 +157,7 @@ costly by the standard efficiency metric of the interval-forecasting
 literature: a Model Confidence Set \citep{hansen2011model}
 over daily cross-sectional mean interval scores \citep{winkler1972decision}
 retains both RC variants among the undominated set (RC hand-tuned has the
-lowest mean loss) and eliminates SF-OGD, TCP-RM, and XS-panel
+lowest mean loss) and eliminates SF-OGD, TCP-RM, XS-panel, and POGO
 ($p < .001$); we do not detect inferior average interval-score
 performance. Fourth, similarity weighting
 without a coverage feedback loop does not solve the problem: KNN-state
@@ -144,14 +168,26 @@ proposed baselines bracket our design and fall short on opposite sides.
 TCP-RM is the strongest per-stock method in stress (84.9\%, still $3.1$
 points below RC, $t = 2.21$, $p = .027$) but pays for it with the widest
 per-stock intervals, because its rolling 60-day window forgets calm-period
-scores wholesale rather than conditioning on the regime. XS-panel has
-access to the same cross-sectional information our method pools, yet its
-stress coverage (82.7\%) is indistinguishable from ACI's: contemporaneous
-cross-sections tell the calibrator how wide intervals should be
-\emph{today}, but without per-regime tracking the adaptive level still
-reacts only after misses accumulate. Cross-sectional information and
-coverage feedback each fail separately; the gain comes from combining
-them inside regime-conditional trackers.
+scores wholesale rather than conditioning on the regime. XS-panel
+calibrates on recent cross-sections of the same panel our method pools
+(the most recent five observed days; the original method's
+contemporaneous-outcome construction is not available when all next-day
+forecasts are issued simultaneously), yet its stress coverage (82.7\%)
+is indistinguishable from ACI's: recent cross-sections tell the
+calibrator how wide intervals should be, but without per-regime tracking
+the adaptive level still reacts only after misses accumulate.
+Cross-sectional information and coverage feedback each fail separately;
+the gain comes from combining them inside regime-conditional trackers.
+Sixth, a published group-conditional guarantee is not the same as
+delivered conditional coverage: POGO, handed our own regime bins as its
+groups, covers 85.8\% marginally and 77.1\% in stress ($-11.0$ points
+against RC, $t = 8.4$). This is not an indictment of the method --- the
+realized coverage is consistent with its stated parameter-free bound,
+which at a per-stock horizon of $T \approx 3{,}800$ rounds permits
+per-side slack of roughly 2.5 points and is vacuous for a 150-round
+stress group. It is evidence that at equity-panel sample sizes the group
+interface alone does not bite; the coverage must come from the tracking
+loop, which is what the pooled per-observation update supplies.
 
 \subsection{Self-tuning rates}\label{sec:adaptive}
 
@@ -172,47 +208,65 @@ method and the hand-tuned one as an ablation.
 \centering
 \includegraphics{figures/fig_var_breach.pdf}
 \caption{Stress-day VaR breach rates against the nominal budgets
-(dashed). Classical parametric models and conformal baselines alike breach
-two to six times their budget on stress days; the regime-conditional head
-comes closest to nominal at both levels.}
+(dashed). Classical parametric models and per-stock conformal baselines
+alike breach two to six times their budget on stress days; the pooled
+heads come closest to nominal, and among them only the
+regime-conditional head balances calm and stress
+(Table~\ref{tab:var}).}
 \label{fig:var}
 \end{figure}
 
-Table~\ref{tab:var} and Figure~\ref{fig:var} apply the one-sided head to next-day VaR and
-backtests all methods with Kupiec, Christoffersen, and dynamic-quantile
-tests per stock. The classical parametric models fail exactly where the
-conformal baselines do: on stress days, 99\% VaR breach rates are 4.1\%
-(GARCH-$t$), 5.4\% (CAViaR), and 3.1\% (ACI) against a 1\% budget. The RC
-head reaches 1.8\% (still above nominal, and we say so), with the
-best marginal rates (5.00/1.07 against 5/1 budgets) and the highest
-backtest pass rates of all seven methods. Conditional balance matters as
-much as levels: without regimes ($K = 1$), 5\% VaR inverts its errors
-(breaching 5.3\% on calm days and 3.6\% on stress days); with regimes the
-profile is 5.0/5.7 (Section~\ref{sec:ablations}).
+Table~\ref{tab:var} and Figure~\ref{fig:var} apply the one-sided head
+to next-day VaR and backtest all methods per stock with the Kupiec
+unconditional-coverage test, the Christoffersen \emph{independence}
+test, their combined conditional-coverage (CC) test, and the
+Engle--Manganelli dynamic-quantile test augmented with a stress-regime
+indicator regressor (DQ-S), all at 5\% significance; tests run over
+each stock's full evaluation sequence. The classical parametric models
+fail exactly where the conformal baselines do: on stress days, 99\% VaR
+breach rates are 4.1\% (GARCH-$t$), 5.4\% (CAViaR), and 3.1\% (ACI)
+against a 1\% budget. The RC head reaches 1.8\% (still above nominal,
+and we say so) with marginal rates of 5.00/1.07 against 5/1 budgets.
+Conditional balance is where the regime layer is statistically
+unambiguous: a date-clustered test of equal calm and stress exceedance
+rates at the 5\% level rejects for every baseline (all overshoot
+stress, $z = 2.1$ to $3.9$) and for the pooled $K = 1$ head in the
+\emph{opposite} direction (calm 5.3\% vs.\ stress 3.7\%, $z = -1.8$);
+only the regime-conditional heads are balanced (5.0/5.7, $z = 0.5$). At
+the deep 1\% tail the ordering partially reverses: pooled $K = 1$ posts
+the best CC and DQ-S pass shares (.91/.73 against RC's .87/.64),
+consistent with the data-splitting cost of conditioning noted in
+Section~\ref{sec:ablations}; we report both levels rather than average
+over them.
 
 \begin{table}[t]
 \centering
 \caption{Next-day VaR backtests. Stress-day breach rates against
-nominal budgets of 5\% and 1\%; the last three columns are the shares
-of stocks whose 99\% VaR sequence passes the Kupiec unconditional
-coverage, Christoffersen conditional coverage, and Engle--Manganelli
-dynamic-quantile tests, each at the 5\% significance level.}
+nominal budgets of 5\% and 1\%; ``Balance $z$'' tests equality of calm
+and stress exceedance rates at the 5\% level (date-clustered; positive
+means stress overshoots). The last three columns are the shares of
+stocks whose 99\% VaR sequence passes the Kupiec, combined
+conditional-coverage (CC), and stress-augmented dynamic-quantile (DQ-S)
+tests at 5\% significance. Christoffersen independence pass shares are
+.79--.97 for all methods and are reported in the replication
+artifacts.}
 \label{tab:var}
 \small
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \toprule
- & \multicolumn{2}{c}{Stress breach rate} &
+ & \multicolumn{2}{c}{Stress breach rate} & &
    \multicolumn{3}{c}{99\% VaR pass shares} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-6}
- & 95\% VaR & 99\% VaR & Kupiec & Christof. & DQ \\
+\cmidrule(lr){2-3} \cmidrule(lr){5-7}
+ & 95\% VaR & 99\% VaR & Balance $z$ & Kupiec & CC & DQ-S \\
 \midrule
-Normal (Gaussian) & 12.5\% & 6.7\% & .05 & .79 & .03 \\
-FHS & 9.0\% & 2.7\% & .88 & .89 & .61 \\
-GARCH-$t$ & 11.9\% & 4.1\% & .56 & .89 & .42 \\
-CAViaR & 12.6\% & 5.4\% & .52 & .81 & .35 \\
-ACI & 8.6\% & 3.1\% & .60 & .83 & .48 \\
-RC (hand-tuned) & 5.5\% & 1.6\% & .83 & \textbf{.93} & .70 \\
-RC (adaptive) & \textbf{5.7\%} & \textbf{1.8\%} & \textbf{.89} & .92 & \textbf{.73} \\
+Normal (Gaussian) & 12.5\% & 6.7\% & $+$2.6 & .05 & .05 & .01 \\
+FHS & 9.0\% & 2.7\% & $+$2.2 & .88 & .83 & .52 \\
+GARCH-$t$ & 11.9\% & 4.1\% & $+$3.5 & .56 & .63 & .27 \\
+CAViaR & 12.6\% & 5.4\% & $+$3.9 & .52 & .56 & .23 \\
+ACI & 8.6\% & 3.1\% & $+$2.1 & .60 & .60 & .36 \\
+Pooled $K=1$ & 3.7\% & \textbf{1.2\%} & $-$1.8 & .83 & \textbf{.91} & \textbf{.73} \\
+RC (hand-tuned) & 5.5\% & 1.6\% & $+$0.3 & .83 & .84 & .61 \\
+RC (adaptive) & \textbf{5.7\%} & 1.8\% & $\mathbf{+0.5}$ & \textbf{.88} & .87 & .64 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -236,9 +290,11 @@ trailing 512-day log-RV history \citep{ansari2024chronos}, is competitive on poi
 training, consistent with \citet{brini2026forecasting}, but its
 native 80\% band covers 77.9\% marginally and is \emph{directionally}
 wrong in stress: 14.6\% upside misses against a 10\% budget versus 5.7\%
-downside. In a crisis the model's uncertainty points the wrong way, and
-its architecture cannot express quantiles beyond $[0.1, 0.9]$, capping any
-native risk use. Constructing regime-calibrated intervals around Chronos's median with our
+downside, so the stress miss asymmetry is concentrated on the side that
+matters for risk. The official checkpoint outputs nine quantiles from
+0.1 to 0.9, capping any native risk use; whether the asymmetry reflects
+uncertainty-scale failure or point-location bias in the median is not
+separable at this quantile resolution. Constructing regime-calibrated intervals around Chronos's median with our
 layer flattens coverage to 80.0--80.2\% across regimes
 (Figure~\ref{fig:tsfm}). The repair is
 forecaster-agnostic by construction; this experiment shows it extends to
@@ -282,7 +338,7 @@ VIX bins with the online HMM changes stress coverage by under two points,
 so no conclusion depends on the regime estimator.
 
 Time is the other axis a design could overfit. Every constant in the
-method is fixed a priori (Appendix~\ref{app:algorithm}) and calibration is
+method is fixed a priori (\ref{app:algorithm}) and calibration is
 fully online, so there is no fitting step to freeze; the temporal question
 is whether the conclusions depend on any particular stretch of the
 evaluation window. Table~\ref{tab:temporal} splits the evaluation at

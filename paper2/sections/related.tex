@@ -23,8 +23,10 @@ samples \citep{foygelbarber2021limits}; practical work therefore targets
 coverage over specified groups. Multivalid prediction achieves multi-group
 validity in batch and adversarial settings \citep{bastani2022practical},
 and \citet{bharti2026parameterfree} obtain parameter-free group-conditional
-online conformal guarantees. In all of these the groups are \emph{given} to
-the algorithm. Our regimes are estimated online from market data: the
+online conformal guarantees; we implement their method as a baseline,
+supplying our own regime bins as its groups
+(Section~\ref{sec:results}). In all of these the groups are \emph{given}
+to the algorithm. Our regimes are estimated online from market data: the
 guarantee necessarily conditions on the filtered estimate, and we quantify
 the cost of that estimation both theoretically
 (Remark~\ref{rem:estimated}) and with a hindsight ablation
@@ -38,7 +40,7 @@ financial risk. \citet{schmitt2026taming} calibrates one-sided portfolio
 VaR with recency and regime-similarity weights under weighted
 exchangeability; \citet{aich2025temporal} combine quantile regression with
 decaying-rate online conformal updates on index data;
-\citet{proxyvar2026} recalibrate one-sided VaR with proxy-reliance
+\citet{proxyvar2026} recalibrates one-sided VaR with proxy-reliance
 control; \citet{su2024adaptive} perform conformal inference for hidden
 states of an HMM. Relative to this line, our setting is a cross-sectional
 \emph{panel} of individual equities rather than a single portfolio or
@@ -48,13 +50,20 @@ we evaluate conditionally throughout. \citet{lin2022conformal} and the
 weighted panel extension of \citet{wtqa2026panel} pool calibration
 information across cross-sectional units; similarity weighting appears in
 our comparison as the KNN-state baseline, and Section~\ref{sec:results}
-implements the two closest recent proposals directly, TCP-RM
-\citep{aich2025temporal} and a cross-sectional split-conformal baseline
-in the spirit of \citet{wtqa2026panel}, on the identical panel. Both are
-marginally valid and both leave most of the stress deficit in place,
-which is why our pooling operates inside regime-conditional tracking
-loops instead. Table~\ref{tab:related} locates this paper against the
-four nearest neighbours.
+implements the three closest recent proposals on the identical panel:
+TCP-RM \citep{aich2025temporal} with its published constants, a
+cross-sectional split-conformal baseline adapted to our information
+structure from \citet{wtqa2026panel} (their contemporaneous-outcome
+construction does not exist when all next-day forecasts are issued
+simultaneously, so ours calibrates on the most recent observed
+cross-sections and is an adaptation, not the original algorithm), and
+POGO \citep{bharti2026parameterfree} run per stock with our bins as its
+groups. TCP-RM and XS-panel are marginally valid, POGO covers within
+its (looser) parameter-free bound, and all three
+leave most of the stress deficit in place, which is why our pooling
+operates inside regime-conditional tracking loops instead.
+Table~\ref{tab:related} locates this paper against the four nearest
+neighbours, each of which now appears in the empirical comparison.
 
 \begin{table}[t]
 \centering
@@ -121,4 +130,7 @@ cross-sectional pooling of the calibration signal, regime-conditional
 coverage targets with per-regime guarantees, one-sided VaR heads, and
 foundation-model repair, all evaluated conditionally at panel scale. Each
 element exists in isolation somewhere in the literature above; the
-combination, and the phenomenon that motivates it, do not.
+combination, and the phenomenon that motivates it, do not. The smallest
+version of the claim is this: regime-conditional coverage failure of
+marginally valid online conformal intervals is documented at panel scale,
+and a panel-pooled regime-conditional tracker removes most of it.

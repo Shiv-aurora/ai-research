@@ -78,7 +78,7 @@ def fig_dse_profile():
     ax.plot(x, dse["hmm_filtered"], "-s", color=VERM, ms=3.2, lw=1.4,
             label="HMM filtered (causal)")
     ax.plot(x, dse["hmm_oracle"], "-^", color=GREEN, ms=3.5, lw=1.4,
-            label="HMM smoothed (oracle)")
+            label="HMM smoothed (hindsight)")
     ax.annotate("day-2 pit", xy=(1, float(dse['bins_k4'].iloc[1]) - 0.006),
                 xytext=(0.05, 0.732), fontsize=7, color="#333",
                 arrowprops=dict(arrowstyle="-", lw=0.6, color="#666"))
@@ -102,7 +102,7 @@ def fig_decomposition():
         ("Per-stock RC (no pooling)", float(e6.loc["per_stock", "cov_stress"]), VERM),
         ("Pooled, K=1 (no regimes)", float(e6.loc["K=1", "cov_stress"]), BLUE),
         ("Pooled, K=4 (ours)", float(e6.loc["K=4", "cov_stress"]), BLUE),
-        ("Pooled, K=4, oracle regimes", float(e6b.loc["hmm_oracle", "cov_stress"]), GREEN),
+        ("Pooled, K=4, hindsight regimes", float(e6b.loc["hmm_oracle", "cov_stress"]), GREEN),
     ]
     labels = [r[0] for r in rows][::-1]
     vals = [r[1] for r in rows][::-1]

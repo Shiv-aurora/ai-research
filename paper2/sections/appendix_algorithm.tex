@@ -40,10 +40,21 @@ $s_{i,t} = r_{i,t} / \hat\sigma_{i,t}$; stock-days with missing scores
 are excluded. The upper side tracks $s_{i,t}$ and the lower side tracks
 $-s_{i,t}$ with identical, independent machinery; we write one side.
 
-\paragraph{Membership.} $\pi_t \in \{0,1\}^K$ is the one-hot VIX bin of
-day $t$ (computed from information through the prior close). If the
-state variable is unavailable, $\pi_t$ falls back to uniform $1/K$; this
-does not occur in the evaluation window.
+\paragraph{Timeline and membership.} One explicit timeline governs every
+index in the paper. At the close of day $t-1$: the state vector is
+computed from information through that close; the resulting one-hot VIX
+bin and the thresholds as of the end of day $t-1$ determine the interval
+issued for outcome day $t$. At the close of day $t$: the outcome is
+observed and all updates run. Rows are indexed by the \emph{outcome}
+day, so $\pi_t \in \{0,1\}^K$, the regime attached to outcome day $t$,
+is computed from information through the prior close --- these are two
+descriptions of the same convention, not two conventions. ``Day 1 after
+regime entry'' is the first outcome day whose prior-close state is
+classified stress. If the state variable is unavailable, the
+implementation falls back to uniform $\pi_t = (1/K, \ldots, 1/K)$; such
+a day would be soft-membership and hence outside the hard-regime setting
+of Proposition~2. This never occurs in the evaluation window, so every
+evaluated day is hard one-hot and the guarantee applies as stated.
 
 \paragraph{Initialization.} Let $\mathcal{W}$ be the first $T_0$ days.
 All expert thresholds initialize at the empirical $(1-a)$-quantile of

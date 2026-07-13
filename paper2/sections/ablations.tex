@@ -63,15 +63,60 @@ pooled tracker fails exactly like a slow per-stock tracker (.770 vs
 matches its average stress coverage (.840 vs .841), consistent with the
 strong cross-sectional dependence anticipated in
 Remark~\ref{rem:dependence}: one hundred correlated stock-days do not
-carry one hundred days of information. Third, that speed is not
-practically reachable per stock: it requires a per-observation rate of
-$0.2$, two orders of magnitude beyond the standard grid, and the
-per-stock arm run with the same adaptive aggregator as the headline
-method, free to choose any rate in the grid, lands at 80.0\%. Pooling's
-operative contribution is that per-observation stepping supplies the
-panel-scaled rate automatically, inside a standard specification; the
-shared threshold additionally tightens the cross-sectional coverage
+carry one hundred days of information.
+
+\paragraph{Fast rates are necessary but not sufficient.} The required
+per-stock rate ($\approx 0.2$ per observation) exceeds the standard
+expert grid's maximum of $0.064$, which raises the obvious objection:
+perhaps the headline gap exists only because the per-stock baselines
+were denied the rates they needed. Table~\ref{tab:expgrid} closes this
+question by extending the grid to $0.512$ and rerunning every
+configuration. The per-stock aggregator \emph{does} find and use the
+fast rates --- its issued effective rate on stress days rises from
+$0.03$ to $0.17$ --- and its stress coverage improves from 80.0\% to
+83.7\%, recovering roughly half the deficit. But it remains $4.6$
+points below RC ($t = 4.8$, $p < .001$, date-clustered), and the same
+pattern holds for every other fast-rate route: DtACI with its
+learning-rate grid widened from $0.2$ to $0.8$ reaches 85.4\%
+($-2.7$, $p = .04$); a pooled tracker stepping once per day on the
+cross-sectional \emph{average} error, with the identical per-day rate
+menu as the per-stock arms, reaches 84.8\% ($-3.3$, $p < .001$).
+Meanwhile the headline method is insensitive to the extension: 88.3\%
+under either grid ($p = .99$). The interpretation is variance, not
+speed alone: a single stream updated at rate $0.2$ tracks its own noise,
+whereas the pooled summed update takes $n_t$ small per-observation steps
+per day --- the same daily speed at roughly $1/\bar n$ of the gradient
+variance. Pooling's operative contribution is that per-observation
+stepping supplies the panel-scaled rate \emph{and} the variance
+reduction automatically, inside a standard specification; the shared
+threshold additionally tightens the cross-sectional coverage
 distribution (Table~\ref{tab:perstock}).
+
+\begin{table}[t]
+\centering
+\caption{Expanded rate grid: giving the baselines the fast rates.
+``Std'' grids end at 0.064 (panel machinery) or 0.2 (DtACI, raw-score
+scale); ``exp'' grids add 0.128/0.256/0.512 (or 0.4/0.8 for DtACI). All
+arms adaptive, full panel; the difference column is the date-clustered
+paired stress-coverage test against RC (std grid). ``Eff.\ rate'' is the
+issued effective per-observation rate on stress days.}
+\label{tab:expgrid}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Arm & Grid & Stress cov. & Diff.\ vs RC & $p$ & Eff.\ rate \\
+\midrule
+RC ($K=4$, pooled, summed) & std & .883 & --- & --- & .010 \\
+RC ($K=4$, pooled, summed) & exp & .883 & $-$0.0 & .99 & .021 \\
+Pooled $K=1$ & exp & .873 & $-$0.9 & .43 & .033 \\
+Pooled $K=4$, averaged errors & exp & .848 & $-$3.3 & $<.001$ & .244 \\
+Per-stock $K=4$ & std & .800 & $-$8.3 & $<.001$ & .029 \\
+Per-stock $K=4$ & exp & .837 & $-$4.6 & $<.001$ & .175 \\
+Per-stock $K=1$ & exp & .843 & $-$3.9 & .005 & .136 \\
+DtACI (per stock, raw scores) & exp & .854 & $-$2.7 & .04 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{table}[t]
 \centering
@@ -94,20 +139,41 @@ Per-stock, rate $\times\,100$ (fast) & .840 & .895 & 1.70 \\
 \end{tabular}
 \end{table}
 
-\paragraph{Regimes buy the conditional structure.} What $K > 1$ adds is
-not primarily the further 0.8 points of average stress coverage. It is:
+\paragraph{What regimes add, with uncertainty attached.} The further
+average stress contribution of $K = 4$ over pooled $K = 1$ is $+0.8$
+points and not significant, and we extend the same inferential
+discipline to every \emph{distinctive} benefit we have claimed for the
+regime layer, on the identical calibrator with only $K$ varied. The
+honest summary: on the interval side, the point estimates consistently
+favor regimes but the stress sample is underpowered to certify them; on
+the risk side, one benefit is statistically unambiguous. In detail:
 (i)~\emph{transition coverage}: day-2-of-stress coverage rises from
-73.4\% ($K = 1$) to 79.4\% ($K = 4$); (ii)~\emph{conditional VaR balance}:
-$K = 1$ inverts the 5\% VaR error profile (calm 5.3\% vs stress 3.6\%
-breaches) where $K = 4$ balances it (5.0/5.7); (iii)~the per-regime
-guarantee of Proposition~\ref{prop:adaptive} exists only when regimes exist;
-and (iv)~the forward-looking acute group of Section~\ref{sec:onset} is
-only expressible with a regime layer. One nuance runs the other way: at
-the 1\% VaR level, $K = 1$'s stress breach rate (1.2\%) is closer to
-nominal than $K = 4$'s (1.9\%), because deep-tail thresholds pay a
-data-splitting cost for conditioning. We report it rather than average
-over it. The choice of $K$ itself is not load-bearing: $K \in \{2, \dots,
-5\}$ agree to within 0.1 points.
+73.4\% ($K = 1$) to 79.4\% ($K = 4$), but only 15 day-2 dates exist, so
+the date-clustered difference is $+5.3$ points with a 95\% interval of
+$[-3.8, +14.5]$; (ii)~\emph{per-regime interval scores and coverage}:
+differences are small and nonsignificant in every regime slice
+(stress coverage $+0.7$, $p = .53$); regime-calibration dispersion
+(weighted RMS deviation of per-regime coverage from nominal) falls from
+$.0054$ to $.0034$, again not significant under block resampling
+($p = .44$); (iii)~\emph{conditional VaR balance}, the unambiguous one:
+at the 5\% level $K = 1$ \emph{inverts} the error profile (calm 5.3\%
+vs.\ stress 3.7\% breaches; date-clustered balance $z = -1.8$) and every
+per-stock or classical baseline overshoots stress
+($z = 2.1$ to $3.9$, all $p < .05$), while $K = 4$ is the only
+configuration that balances the two slices (5.0/5.7, $z = 0.5$);
+(iv)~the per-regime guarantee of Proposition~\ref{prop:adaptive} exists
+only when regimes exist; and (v)~the forward-looking acute group of
+Section~\ref{sec:onset} is only expressible with a regime layer. One
+nuance runs the other way: at the 1\% VaR level, $K = 1$'s stress breach
+rate (1.2\%) is closer to nominal than $K = 4$'s (1.8\%), because
+deep-tail thresholds pay a data-splitting cost for conditioning. We
+report it rather than average over it. The choice of $K$ itself is not
+load-bearing: $K \in \{2, \dots, 5\}$ agree to within 0.1 points.
+Readers who weight only the certified findings should read this paper
+as: panel-pooled calibration repairs average stress coverage; regime
+conditioning adds a balanced conditional risk profile, guarantees, and
+consistently favorable but individually uncertified interval-side
+structure.
 
 \paragraph{Everything else is small.} Per-stock offsets change stress
 coverage by less than 0.1 points; standardization already does the

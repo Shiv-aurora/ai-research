@@ -23,7 +23,7 @@ crises: 78.6\% coverage through the 2020 COVID crash, 76.5\% through the
 evaluate. The
 same failure appears in a zero-shot time-series foundation model: the native
 prediction band of Chronos \citep{ansari2024chronos} is not merely too
-narrow in stress but points the wrong way, missing on the upside 14.6\% of
+narrow in stress but asymmetrically so, missing on the upside 14.6\% of
 the time against a 10\% budget while missing only 5.7\% on the downside.
 
 We then show that most of this conditional deficit can be removed, and
@@ -83,20 +83,25 @@ Wachovia, and Washington Mutual are in the panel through their deaths.
   stress regimes and in the direction risk management cares about
   (Section~\ref{sec:results}).
 \item \textbf{The method.} A regime-conditional, panel-pooled, self-tuning
-  online conformal layer with finite-sample per-regime coverage guarantees
-  that hold for arbitrary dependence, plus a one-sided head that maps to
-  VaR (Sections~\ref{sec:method}--\ref{sec:theory}).
+  online conformal layer with per-regime coverage guarantees
+  that hold for arbitrary dependence (finite-horizon inequalities whose
+  numerical content we state honestly in Remark~\ref{rem:numeric}), plus
+  a one-sided head that maps to VaR
+  (Sections~\ref{sec:method}--\ref{sec:theory}).
 \item \textbf{The decomposition.} Ablations attributing the repair to its
   parts: pooling contributes most of the average stress coverage; regime
   conditioning contributes transition coverage, conditional VaR balance,
-  and the per-regime guarantee itself; adaptivity removes all tuning
+  and the per-regime guarantee itself; adaptivity removes manual
+  regime-specific learning-rate selection
   (Section~\ref{sec:ablations}).
 \item \textbf{Foundation-model repair.} Evidence that a zero-shot TSFM's
   native uncertainty is directionally miscalibrated in crises, and that
   the same layer repairs it. This is timely, given that current TSFM
   evaluations in volatility forecasting consider point accuracy only
   \citep{brini2026forecasting}.
-\item \textbf{An honest limit.} The day-2 onset window resists every
-  conditioning scheme, including hindsight regimes and option-implied
-  signals; we characterize why (Section~\ref{sec:onset}).
+\item \textbf{A persistent onset limitation.} The day-2 onset window
+  resists every conditioning scheme and signal we evaluate, including
+  hindsight regimes and the option-implied term structure; we
+  characterize the evidence and its boundaries
+  (Section~\ref{sec:onset}).
 \end{enumerate}

@@ -55,13 +55,13 @@ class _SideTracker:
 
 
 def run_dtaci(scores: np.ndarray, alpha: float = 0.10,
-              warmup: int = 100) -> pd.DataFrame:
+              warmup: int = 100, etas: tuple = DEFAULT_ETAS) -> pd.DataFrame:
     """Two-sided DtACI over a stream of signed scores. Same output schema as
     run_aci for drop-in evaluation."""
     n = len(scores)
     a_side = alpha / 2.0
-    lo = _SideTracker(a_side)
-    hi = _SideTracker(a_side)
+    lo = _SideTracker(a_side, etas=etas)
+    hi = _SideTracker(a_side, etas=etas)
     lo.init(float(np.quantile(-scores[:warmup], 1 - a_side)))
     hi.init(float(np.quantile(scores[:warmup], 1 - a_side)))
 

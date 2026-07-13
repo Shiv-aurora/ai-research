@@ -175,6 +175,30 @@ and bounding $|c_{T+1}(k)| \le B + C_w + \eta_{\mathrm{corr}} \bar n =
 dividing by $\eta_{\mathrm{corr}} N_k$.
 \end{proof}
 
+\begin{remark}[What the constants deliver, numerically]
+\label{rem:numeric}
+These are finite-horizon inequalities, and honesty requires evaluating
+them at the paper's constants ($B = 12$, $\eta_{\max} = 0.064$,
+$\eta_{\mathrm{corr}} = 0.002$, $\bar n = 100$) and the observed
+per-regime stock-day counts. Proposition~\ref{prop:adaptive}'s bound on
+the absolute deviation of the per-side miss frequency is $0.066$ for
+calm ($N_k = 230{,}278$), $0.153$ for normal ($N_k = 99{,}752$),
+$0.309$ for elevated ($N_k = 49{,}590$), and $1.048$ for stress
+($N_k = 14{,}593$) --- the stress value exceeds one and therefore
+constrains nothing at this sample size. (Proposition~\ref{prop:hard} at
+the fixed rates gives $0.10$--$0.17$ across regimes.) The propositions
+should accordingly be read as worst-case pathwise control with an
+$O(1/N_k)$ rate, not as tight finite-sample certificates: they hold
+against \emph{every} score sequence, including adversarial ones, and
+that generality is what the constants pay for. Two mitigations are
+exact. First, the telescoped identity behind each proof makes the
+realized deviation directly observable, $N_k^{-1} \sum (\mathrm{err} -
+a) = c_{T+1}(k) / (\eta_{\mathrm{corr}} N_k)$, and the realized values
+in Table~\ref{tab:main} are two orders of magnitude inside the bounds.
+Second, the bound tightens mechanically as $N_k$ grows; stress is the
+binding case precisely because it is the rare regime.
+\end{remark}
+
 \begin{proposition}[One-sided risk head]\label{prop:onesided}
 The one-sided calibrator tracks a single upper threshold with $a = \alpha$
 and the same updates; Propositions~\ref{prop:hard}

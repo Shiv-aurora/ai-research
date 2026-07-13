@@ -10,14 +10,18 @@ estimate of the (1-p) quantile of z. Methods differ only in how q_t is set:
   garch_t      per-stock GARCH(1,1)-t VaR on raw returns    [classical benchmark]
   caviar       Engle-Manganelli SAV CAViaR on raw returns   [classical benchmark]
   aci          per-stock one-sided conformal tracking       [marginal adaptive]
+  pooled_k1    pooled one-sided adaptive, no regimes        [pooling-only arm]
   rc_panel     pooled regime-conditional one-sided (ours)   [this paper]
   rc_adaptive  same, DtACI-per-regime adaptive rates        [this paper, no tuning]
 
 garch_t/caviar forecast return quantiles directly; their VaR is converted to
 z units (divide by sigma_pred) so all methods share the exceedance test.
 
-Evaluation: pooled exceedance rates overall and by VIX regime; share of
-stocks passing Kupiec, Christoffersen, and DQ at 5% significance.
+Evaluation: pooled exceedance rates overall and by VIX regime; a
+date-clustered calm-vs-stress balance z-test per method; share of stocks
+passing Kupiec, Christoffersen INDEPENDENCE, combined conditional
+coverage (CC, 2 df), DQ, and a regime-aware DQ with a stress indicator
+regressor, all at 5% significance.
 
 Usage: .venv/bin/python scripts/e3_var.py
 """
@@ -36,6 +40,7 @@ from src.data.ohlc import load_returns
 from src.forecasters.quantile_baselines import caviar_sav, garch_t_var
 from src.utils.parallel import pmap
 from src.data.universe import get_universe
+from src.eval.dm_hac import hac_mean_se
 from src.eval.var_backtests import backtest_panel
 from src.utils.config import PROJECT_ROOT, load_config
 from src.utils.seeding import seed_everything
@@ -141,29 +146,58 @@ def main() -> None:
         base = base.merge(rca[["ticker", "date", "q_rca"]],
                           on=["ticker", "date"], how="left")
 
+        # pooled K=1 adaptive (no regimes): isolates what the regime
+        # layer adds on the risk head
+        member1 = pd.DataFrame(1.0, index=member.index,
+                               columns=["regime_0"])
+        rk1 = run_panel_mondrian(base, member1, "pool", alpha=alpha,
+                                 adaptive=True, warmup_days=WARMUP_DAYS,
+                                 one_sided=True, score_col="z")
+        rk1 = rk1.rename(columns={"q_hi": "q_rck1"})
+        base = base.merge(rk1[["ticker", "date", "q_rck1"]],
+                          on=["ticker", "date"], how="left")
+
         d = base[(~base["warm"]) & base["q_fhs"].notna() & base["q_rc"].notna()
-                 & base["q_garch"].notna() & base["q_caviar"].notna()]
+                 & base["q_garch"].notna() & base["q_caviar"].notna()].copy()
+        d["stress_ind"] = (d["vix_pctl"] > 0.95).astype(float)
         print(f"\n=== VaR {int((1-alpha)*100)}% (n={len(d):,}) ===")
-        header = f"{'method':<10} {'rate':>7} {'calm':>7} {'stress':>7} " \
-                 f"{'kupiec%':>8} {'christ%':>8} {'dq%':>6}"
+        header = f"{'method':<12} {'rate':>7} {'calm':>7} {'stress':>7} " \
+                 f"{'bal_z':>7} {'kup%':>6} {'ind%':>6} {'cc%':>6} " \
+                 f"{'dq%':>6} {'dqS%':>6}"
         print(header)
         for m, qcol in [("normal", "q_normal"), ("fhs", "q_fhs"),
                         ("garch_t", "q_garch"), ("caviar", "q_caviar"),
-                        ("aci", "q_aci"), ("rc_panel", "q_rc"),
-                        ("rc_adaptive", "q_rca")]:
+                        ("aci", "q_aci"), ("pooled_k1", "q_rck1"),
+                        ("rc_panel", "q_rc"), ("rc_adaptive", "q_rca")]:
             e = d["z"] > d[qcol]
             calm = e[d.vix_pctl <= 0.5].mean()
             stress = e[d.vix_pctl > 0.95].mean()
-            bt = backtest_panel(d.assign(exc=e), "exc", alpha)
+            # calm-vs-stress balance: date-clustered z-test of equal
+            # exceedance rates in the two slices
+            sc = hac_mean_se(e[d.vix_pctl <= 0.5].astype(float),
+                             d.loc[d.vix_pctl <= 0.5, "date"])
+            ss = hac_mean_se(e[d.vix_pctl > 0.95].astype(float),
+                             d.loc[d.vix_pctl > 0.95, "date"])
+            bal_z = ((ss["mean"] - sc["mean"])
+                     / np.sqrt(ss["se"] ** 2 + sc["se"] ** 2))
+            bt = backtest_panel(d.assign(exc=e), "exc", alpha,
+                                stress_col="stress_ind")
             pass_k = (bt["kupiec_p"] > 0.05).mean()
-            pass_c = (bt["christoffersen_p"] > 0.05).mean()
+            pass_i = (bt["independence_p"] > 0.05).mean()
+            pass_cc = (bt["cc_p"] > 0.05).mean()
             pass_d = (bt["dq_p"] > 0.05).mean()
-            print(f"{m:<10} {e.mean():>7.4f} {calm:>7.4f} {stress:>7.4f} "
-                  f"{pass_k:>8.2f} {pass_c:>8.2f} {pass_d:>6.2f}")
+            pass_ds = (bt["dq_stress_p"] > 0.05).mean()
+            print(f"{m:<12} {e.mean():>7.4f} {calm:>7.4f} {stress:>7.4f} "
+                  f"{bal_z:>7.2f} {pass_k:>6.2f} {pass_i:>6.2f} "
+                  f"{pass_cc:>6.2f} {pass_d:>6.2f} {pass_ds:>6.2f}")
             all_rows.append({"alpha": alpha, "method": m, "rate": e.mean(),
                              "rate_calm": calm, "rate_stress": stress,
-                             "kupiec_pass": pass_k, "christoffersen_pass": pass_c,
-                             "dq_pass": pass_d})
+                             "balance_z": bal_z,
+                             "balance_p": 2 * (1 - stats.norm.cdf(abs(bal_z))),
+                             "kupiec_pass": pass_k,
+                             "independence_pass": pass_i,
+                             "cc_pass": pass_cc, "dq_pass": pass_d,
+                             "dq_stress_pass": pass_ds})
 
     out = PROJECT_ROOT / "reports"
     pd.DataFrame(all_rows).to_csv(out / "e3_var_summary.csv", index=False)

@@ -27,5 +27,9 @@ the per-experiment notes in `docs/RESULTS.md`.
 | Figure: alpha sweep (`fig:alpha`) | E12 | `scripts/e12_alpha_sweep.py` | `e12_alpha_sweep.csv` |
 | Table: pooling mechanism (`tab:mechanism`) | E13 | `scripts/e13_pooling_mechanism.py` | `e13_pooling_mechanism.csv` |
 | Table: temporal robustness (`tab:temporal`) | E14 | `scripts/e14_temporal_holdout.py` | `e14_subperiod.csv`, `e14_subperiod_gap.csv`, `e14_loco.csv` |
+| Expanded rate-grid statements/table | E15 | `scripts/e15_expanded_grid.py` | `e15_expanded_grid.csv`, `e15_expanded_grid_tests.csv`, `e15_eff_eta.csv` |
+| Numeric theorem bounds; episode bootstrap; HAC sensitivity | E16 | `scripts/e16_bounds_inference.py` | `e16_bound_values.csv`, `e16_episode_bootstrap.csv`, `e16_hac_sensitivity.csv` |
+| K=1 vs K=4 conditional inference | E17 | `scripts/e17_k1_vs_k4.py` | `e17_regime_slices.csv`, `e17_dse_diff.csv`, `e17_dispersion.csv` |
+| Onset uncertainty + widening Pareto | E18 | `scripts/e18_onset_uncertainty.py` | `e18_entries.csv`, `e18_dse_ci.csv`, `e18_loo_day2.csv`, `e18_trajectories.csv`, `e18_pareto.csv` |
 | Regime-estimator robustness statements | — | `scripts/e2_panel.py` | `e2_panel_summary.csv` |
 | Onset/transition statements | — | `scripts/e2_onset.py`, `scripts/e2_transition.py` | `e2onset_*.csv`, `e2_transition_*.csv` |
