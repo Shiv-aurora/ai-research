@@ -1,0 +1,29 @@
+% Separate highlights file for IJF submission (uploaded as its own
+% document, per Elsevier's Highlights requirement; <= 85 chars each).
+% Build: latexmk -pdf highlights.tex
+\documentclass[11pt]{article}
+\usepackage[margin=1.2in]{geometry}
+\usepackage{microtype}
+\begin{document}
+\thispagestyle{empty}
+
+\noindent\textbf{Highlights}
+
+\medskip
+\noindent\textit{Regime-Conditional Conformal Prediction for Realized
+Volatility Forecasting}
+
+\begin{itemize}
+\item Conformal volatility intervals promised 90\% cover only 83\% of
+  stress days.
+\item Pooling calibration across stocks repairs most of the stress
+  deficit.
+\item Per-regime thresholds add conditional structure and per-regime
+  guarantees.
+\item Stress-day VaR backtests improve on GARCH-$t$, CAViaR, and
+  conformal baselines.
+\item Day-2-of-spike coverage resists every scheme evaluated: a
+  persistent onset limitation.
+\end{itemize}
+
+\end{document}

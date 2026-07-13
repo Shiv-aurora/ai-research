@@ -5,7 +5,7 @@ received 2026-07-13, pasted in chat). If you are a fresh session: read
 this file, then `docs/RESULTS.md` (E15–E18 sections) and
 `~/.claude/projects/.../memory/project-rccv-flagship.md`. Repo:
 `github.com/Shiv-aurora/ai-research`, branch `main`, last pushed commit
-`50db373` (R5). **Everything below is uncommitted work on top of that.**
+`50db373` (R5). **UPDATE: R6 committed as `eb5487e` and pushed. Steps 1-5 of the remaining list are DONE (RESULTS.md E2/E3 updated, PDF rebuilt clean 45pp/0 undefined/0 'Appendix Appendix'/0 visible 'oracle', figures regenerated with de-oracled legends, 76+2 tests green). Remaining = step 6 (R7 leftovers, chiefly the figure overhaul) and steps 7-8.**
 
 ## Context
 
