@@ -22,8 +22,9 @@ window; expert rate grid $\mathcal{G} = (0.0005, 0.001, 0.002, 0.004,
 0.008, 0.016, 0.032, 0.064)$, a dyadic ladder with $E = 8$ elements;
 aggregation rate $\lambda = 5.0$; uniform-mixing coefficient
 $\sigma_{\mathrm{mix}} = 0.01$; corrector rate
-$\eta_{\mathrm{corr}} = 0.002$. All rates are per stock-day
-(per-observation steps).
+$\eta_{\mathrm{corr}} = 0.002$. All rates are per stock-day: each daily update is one summed
+cross-sectional mini-batch step whose magnitude scales with the day's
+stock count.
 
 \paragraph{Scores and scale.} For stock $i$ with point forecast
 $m_{i,t}$ and outcome $y_{i,t}$, the residual is
@@ -98,6 +99,15 @@ time.
 day $t$ (delisted or missing data) simply do not contribute terms; no
 imputation is performed.
 \end{enumerate}
+
+\paragraph{Interval validity.} The two sides are tracked
+independently, so a well-ordered interval requires
+$q^{\mathrm{lo}} + q^{\mathrm{hi}} \ge 0$ in standardized units. No
+repair mechanism is needed empirically: across all 365{,}569 issued
+non-warmup intervals of the headline run, the minimum issued upper
+threshold is $1.28$, the minimum lower threshold $0.97$, and no
+interval is empty or inverted (replication artifact
+\texttt{e21\_interval\_validity}).
 
 \paragraph{Reductions.} A single-element grid with
 $\eta_{\mathrm{corr}} = 0$ reduces the recursion exactly to the

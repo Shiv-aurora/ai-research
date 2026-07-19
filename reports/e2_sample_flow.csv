@@ -5,6 +5,8 @@ usable by aci,375072
 usable by dtaci,375072
 usable by sfogd,375072
 usable by tcp_rm,375072
+usable by cpid,375072
+usable by rkr,375072
 usable by har_qreg,269705
 usable by knn_state,365569
 usable by rc_hand,365569

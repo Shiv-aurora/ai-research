@@ -58,9 +58,10 @@ option-implied VIX9D/VIX signal, and even a deliberately noncausal
 hindsight calibrator given full-sample smoothed regime memberships
 (Figure~\ref{fig:dse}). Day-2 under-coverage is not a regime-detection
 failure; it is a shift in the score distribution faster than any
-bounded-step tracker can follow, and the option-implied signal we evaluated does not
-anticipate it either. We report this as an honest boundary of the approach, with a
-finite-sample explanation.
+bounded-step tracker can follow, and the option-implied signal we
+evaluated does not anticipate it either. We report this as a boundary
+of the approach, with a mechanism-level explanation and an explicit
+account of what covering it would cost.
 
 Three framing points delimit the contribution. Point-forecast accuracy is
 held fixed by design: our forecaster pool ties standard HAR and gradient
@@ -85,7 +86,7 @@ Wachovia, and Washington Mutual are in the panel through their deaths.
 \item \textbf{The method.} A regime-conditional, panel-pooled, self-tuning
   online conformal layer with per-regime coverage guarantees
   that hold for arbitrary dependence (finite-horizon inequalities whose
-  numerical content we state honestly in Remark~\ref{rem:numeric}), plus
+  numerical content is evaluated in Remark~\ref{rem:numeric}), plus
   a one-sided head that maps to VaR
   (Sections~\ref{sec:method}--\ref{sec:theory}).
 \item \textbf{The decomposition.} Ablations attributing the repair to its

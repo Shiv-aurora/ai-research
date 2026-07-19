@@ -4,7 +4,7 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
 \usepackage{siunitx}
-\usepackage{hyperref}
+\usepackage[hidelinks]{hyperref}
 \usepackage{microtype}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
@@ -28,22 +28,23 @@
 \title{Conformal Prediction for Realized Volatility across Market Regimes}
 
 \begin{abstract}
-Volatility forecast intervals are consumed conditionally, on the bad
-days, yet are validated on average. On a point-in-time panel of the 100
-largest US stocks (2005--2025; 519{,}843 stock-days), online conformal
-intervals for next-day realized volatility are valid on average yet
-cover only 83\% of stress-regime days at a 90\% promise --- a shortfall
-concentrated in the upper tail and in the fast regime shifts of
-2018--2025. We introduce a forecaster-agnostic calibration layer that
-pools the calibration signal across stocks, maintains thresholds per
-market regime, and sets per-regime learning rates by online expert
+Volatility forecast intervals are consumed on the bad days yet
+validated on average. On a point-in-time panel of the 100
+largest US stocks (519{,}843 stock-days, 2005--2025; evaluation
+2010--2025; 269{,}705 stock-days in the thirteen-method comparison),
+online conformal intervals for next-day realized volatility are valid
+on average yet cover only 83\% of stress-regime days at a 90\% promise
+--- a shortfall concentrated in the upper tail and in the fast regime
+shifts of 2018--2025. A forecaster-agnostic calibration layer pools the
+calibration signal across stocks, maintains thresholds per market
+regime, and sets its learning rates by online expert
 aggregation. Pooling supplies most of the average repair; regime
 conditioning adds conditional structure and per-regime frequency
-guarantees. Stress coverage rises to 88.1\% at no detected cost in
-average interval score, and stress-day Value-at-Risk backtests improve
+guarantees. Stress coverage rises to 88.1\% with no detected
+average interval-score cost, and stress-day Value-at-Risk backtests improve
 on GARCH-$t$, CAViaR, and conformal baselines. Second-day-of-spike
-coverage resists every scheme evaluated; we pose this onset window as an
-open problem.
+coverage resists every scheme evaluated; this onset window remains
+open.
 \end{abstract}
 
 % Highlights are submitted as a separate file (highlights.tex), per

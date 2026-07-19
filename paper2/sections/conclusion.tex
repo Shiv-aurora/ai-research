@@ -4,7 +4,7 @@
 method removes most of the conditional coverage deficit, not all of it:
 88.1\% against 90\% nominal in stress, with the shortfall concentrated in
 the onset window of Section~\ref{sec:onset}, and 99\% VaR stress breaches
-of 1.8\% against 1\%. We consider stating this plainly preferable to
+of 1.8\% against 1\%. We consider reporting this residual preferable to
 tuning until a table reads 90.0 on a slice chosen after the fact. Second,
 scope: one market (US large-cap equities), one target (daily realized
 volatility); the mechanism (rare-regime starvation repaired by
@@ -44,14 +44,17 @@ uncertainty fails in the same direction. Marginal validity conceals a
 conditional failure mode of the recent market era, which is exactly when
 such intervals are consumed. A calibration layer that pools the cross-section within
 online-estimated regimes and tunes itself removes most of that deficit at
-no cost in average interval score, carries finite-sample per-regime
-guarantees robust to arbitrary dependence, and maps directly to VaR,
+no detected cost in average interval score, carries finite-horizon
+pathwise bounds on aggregate realized per-regime miss frequencies,
+robust to arbitrary dependence, and maps directly to VaR,
 where it is the only method compared whose calm and stress breach rates
 are statistically balanced at the 5\% level, with top-tier backtest
 pass shares. What
-it cannot do (cover the second day of a volatility spike) survives
-hindsight regime knowledge and option-implied signals, and we leave it as a
-precisely posed open problem. The practical reading for forecasters is
+it does not do by default (cover the second day of a volatility spike)
+recurs across every method, era, and conditioning scheme we evaluate,
+though the estimate rests on few observed transitions and covering the
+window is a priced trade rather than an impossibility
+(Section~\ref{sec:onset-pareto}). The practical reading for forecasters is
 simple: report coverage conditionally, expect marginal guarantees to hide
 exactly the failures that matter, and pool calibration information across
 the cross-section when rare states are the concern.

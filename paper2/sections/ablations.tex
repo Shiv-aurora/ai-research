@@ -3,7 +3,7 @@
 The method combines pooling, regimes, and adaptivity; a reader
 should know what each buys. Figure~\ref{fig:decomposition} and
 Table~\ref{tab:ablations} decompose stress coverage across the reduction
-grid of Section~\ref{sec:method}; the honest summary is that
+grid of Section~\ref{sec:method}; the summary is that
 \emph{pooling carries the average, regimes carry the conditional
 structure}.
 
@@ -46,7 +46,7 @@ Pooled, $K=4$, forecaster = LightGBM & .883 & 2.26 \\
 the stress regime too rarely to calibrate itself: per-stock calibration
 reaches 80.0\% stress coverage; pooling the cross-section under one
 marginal tracker ($K = 1$) reaches 87.5\%. This ordering is worth stating
-plainly because it is not the usual sales pitch: the cross-section, not
+directly because it is not the usual sales pitch: the cross-section, not
 the regime label, supplies most of the raw coverage repair.
 
 \paragraph{What pooling actually is.} Because the pooled update sums
@@ -83,14 +83,26 @@ cross-sectional \emph{average} error, with the identical per-day rate
 menu as the per-stock arms, reaches 84.8\% ($-3.3$, $p < .001$).
 Meanwhile the headline method is insensitive to the extension: 88.3\%
 under either grid ($p = .99$). The interpretation is variance, not
-speed alone: a single stream updated at rate $0.2$ tracks its own noise,
-whereas the pooled summed update takes $n_t$ small per-observation steps
-per day --- the same daily speed at roughly $1/\bar n$ of the gradient
-variance. Pooling's operative contribution is that per-observation
-stepping supplies the panel-scaled rate \emph{and} the variance
-reduction automatically, inside a standard specification; the shared
-threshold additionally tightens the cross-sectional coverage
-distribution (Table~\ref{tab:perstock}).
+speed alone: a single stream updated at rate $0.2$ tracks its own
+noise, whereas the pooled update applies one summed cross-sectional
+mini-batch step per day --- the same daily movement driven by the
+average of $n_t$ error indicators. How much variance that averaging
+removes is bounded by cross-sectional dependence: for exchangeable
+errors with pairwise correlation $\rho$,
+$\operatorname{Var}(n^{-1}\sum_i u_i) = \sigma^2[\rho + (1-\rho)/n]$,
+which floors at $\rho\sigma^2$ rather than falling as $1/n$, so the
+effective panel size is $n_{\mathrm{eff}} = n / (1 + (n-1)\rho)$. We
+estimate $\rho$ of the daily upper-miss indicators and the implied
+$n_{\mathrm{eff}}$, and probe the same question in controlled
+simulations varying $\rho$, panel size, and heterogeneity
+(Section~\ref{sec:mechanism-sims}): the variance reduction pooling
+delivers is that of $n_{\mathrm{eff}}$ conditionally independent
+streams, material but far short of $\bar n$. Pooling's operative
+contribution is that the summed mini-batch update supplies the
+panel-scaled rate and this dependence-limited variance reduction
+automatically, inside a standard specification; the shared threshold
+additionally tightens the cross-sectional coverage distribution
+(Table~\ref{tab:perstock}).
 
 \begin{table}[t]
 \centering
@@ -139,12 +151,50 @@ Per-stock, rate $\times\,100$ (fast) & .840 & .895 & 1.70 \\
 \end{tabular}
 \end{table}
 
+\subsection{Effective panel size and simulations}
+\label{sec:mechanism-sims}
+
+The variance argument above depends on how correlated the panel's miss
+indicators actually are, so we estimate it. Using the moment identity
+$\operatorname{Var}(\bar u_t) = \sigma^2[\rho + (1-\rho)/n]$ on the
+daily upper-miss indicators of the headline run, the intra-date
+correlation is $\rho = .16$ over all days --- an effective panel size
+$n_{\mathrm{eff}} \approx 6$, a material but far-from-$\bar n$
+variance reduction --- and $\rho = .90$ on stress days, an effective
+panel size of $\approx 1.1$: on crisis days the cross-section misses
+together, and the panel is informationally close to a single stream.
+This sharpens the mechanism decomposition. In regime interiors and
+transitions in aggregate, pooling supplies both the panel-scaled rate
+and a genuine (sixfold) variance reduction; \emph{within} acute stress
+the variance channel is nearly absent, and pooling's residual advantage
+over rate-matched per-stock arms (Table~\ref{tab:expgrid}) must come
+from the graded batch signal --- the daily miss \emph{fraction} across
+$\sim$100 stocks is a finer gradient than one stock's binary miss ---
+and from the shared threshold itself.
+
+Controlled simulations isolate what the empirical ablations confound.
+On synthetic factor-structured panels ($s_{it} = \sqrt{\rho} f_t +
+\sqrt{1-\rho}\, e_{it}$, stress scale $\times 3$, two-state Markov
+regimes with stationary stress probability $.05$, per-stock scale
+heterogeneity $\sigma_h$, all trackers at the same fixed rate so speed
+is controlled), the pooled regime-conditional tracker dominates
+per-stock and pooled-marginal trackers in every cell of a $\rho \in
+\{0, .3, .6, .9\} \times n \in \{10, 100\} \times \sigma_h \in
+\{0, .5\}$ grid, and its advantage behaves exactly as the dependence
+formula predicts: largest at $\rho = 0$ with $n = 100$ (stress
+coverage $.83$ vs $.51$ per stock), shrinking monotonically in $\rho$
+(to $.67$ at $\rho = .9$) and eroded by heterogeneity at low $\rho$.
+Pooling helps most when the cross-section is large, weakly dependent,
+and homogeneous; it never hurt in these designs, but its margin is
+governed by $n_{\mathrm{eff}}$, not $n$. Full grids are in the
+replication artifacts.
+
 \paragraph{What regimes add, with uncertainty attached.} The further
 average stress contribution of $K = 4$ over pooled $K = 1$ is $+0.8$
 points and not significant, and we extend the same inferential
 discipline to every \emph{distinctive} benefit we have claimed for the
-regime layer, on the identical calibrator with only $K$ varied. The
-honest summary: on the interval side, the point estimates consistently
+regime layer, on the identical calibrator with only $K$ varied. In
+summary: on the interval side, the point estimates consistently
 favor regimes but the stress sample is underpowered to certify them; on
 the risk side, one benefit is statistically unambiguous. In detail:
 (i)~\emph{transition coverage}: day-2-of-stress coverage rises from

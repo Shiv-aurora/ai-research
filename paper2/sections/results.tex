@@ -39,9 +39,13 @@ of the conditional deficit while holding other regimes at nominal.}
 \label{fig:coverage}
 \end{figure}
 
-Table~\ref{tab:main} is the paper's central comparison: eleven methods
+Table~\ref{tab:main} is the paper's central comparison: thirteen methods
 on the identical common sample. The baselines span the online conformal
-family (ACI, DtACI, SF-OGD), the recent rolling-conformal method of
+family (ACI, DtACI, SF-OGD), conformal PID control
+\citep{angelopoulos2023conformal} (quantile tracking, saturated
+integrator, and a trailing-quantile scorecaster, per stock --- the
+method whose integrator structure our corrector borrows), the recent
+rolling-conformal method of
 \citet{aich2025temporal} with its Robbins--Monro coverage offset (TCP-RM,
 ported to our score scale with its published constants), a classical
 direct-quantile model (HAR quantile regression), a similarity-weighted
@@ -53,10 +57,17 @@ score cross-sections of the previous five days, with an adaptive
 miscoverage level; their contemporaneous-outcome construction is not
 available when all next-day forecasts are issued simultaneously, so this
 is an adaptation to our information structure, not the original
-algorithm), and the parameter-free group-conditional coin-betting method
-of \citet{bharti2026parameterfree} (POGO, run per stock as its
-single-stream setting specifies, with our hard VIX bins supplied as its
-groups --- the exact interface its guarantee requires). Every marginal coverage sits
+algorithm), and two group-conditional methods handed our own hard VIX
+bins as their groups --- the exact interface their guarantees require:
+the parameter-free coin-betting method of
+\citet{bharti2026parameterfree} (POGO, per stock as its single-stream
+setting specifies) and the no-regret FTRL scheme of
+\citet{ramalingam2025noregret} (RKR, per stock, with overlapping
+marginal-plus-bin groups). Comparator constants were fixed once, from
+each source paper's own conventions or data requirements, and not
+revisited; the one comparator setting the conclusions are sensitive to
+--- the adaptive rate-grid ceiling --- is swept explicitly in
+Table~\ref{tab:expgrid}. Every marginal coverage sits
 within half a point of 90\%; every baseline's stress coverage sits between
 81.5\% and 84.9\%. The two regime-conditional variants (hand-tuned
 rates and the zero-tuning adaptive configuration) reach 88.1--88.2\%,
@@ -85,9 +96,37 @@ fast shifts of 2018--2025, absent to slightly negative before
 (Table~\ref{tab:temporal}) --- and 18 episodes is all the
 twenty-one-year sample contains. Against XS-panel, whose deficit is
 uniform across eras, the episode-resampled interval excludes zero
-($[+2.8, +8.9]$, $p < .001$). We report both inferential treatments and
-let them mean what they mean: the repair is era-dependent insurance,
-overwhelming when fast regime shifts occur and free when they do not.
+($[+2.8, +8.9]$, $p < .001$). Both inferential treatments are reported: the repair is
+era-dependent insurance, large when fast regime shifts occur and
+approximately free when they do not.
+
+Because the comparisons above are many --- thirteen methods, four
+regimes, two tails, two eras --- we prespecify one \emph{primary
+endpoint} and treat everything else as secondary. The primary endpoint
+is the stress-day \emph{upper-tail} coverage difference against ACI,
+the direction that maps to risk losses, estimated on the full calendar
+(not event time) by regressing the daily paired difference on a stress
+indicator: the calm-day gap is $-0.1$ points (as it should be) and the
+stress increment is $+4.0$ points, significant under calendar-time HAC
+($p = .009$), under episode-clustered standard errors ($p = .016$), and
+under a wild cluster bootstrap over the 18 episodes ($p = .003$), with
+leave-one-episode-out estimates spanning $[+2.3, +4.8]$ --- always
+positive. The secondary two-sided stress increments are positive
+against every per-stock baseline ($+3.3$ to $+5.8$ points, calm gaps
+$\approx 0$) but individually weaker under episode-level wild
+bootstrap ($p = .13$--$.34$), and a Romano--Wolf stepdown across all
+baselines leaves only the POGO and XS-panel comparisons significant
+after multiplicity adjustment (adjusted $p = .017$ and $.041$; ACI
+adjusted $p = .099$). We state the resulting evidential hierarchy
+explicitly: the upper-tail repair is certified under the most
+conservative treatment we know how to run; the two-sided secondary
+gaps are consistent in sign and era-concentrated but not individually
+certified against episode-level variation. Efficiency admits a formal
+non-inferiority statement: the paired daily interval-score difference
+against ACI is $-0.003$ with 95\% interval $[-0.022, +0.015]$, inside
+a prespecified margin of 2\% of ACI's mean score, so RC is
+statistically non-inferior on average efficiency, not merely
+``no detected loss.''
 
 Because the guarantee is panel-level (Remark~\ref{rem:panel}), a pooled
 threshold could in principle hide stock-level failures behind a valid
@@ -133,6 +172,8 @@ ACI & .899 & .897 & .829 & .901 & 1.70 & 1.80 \\
 DtACI & .899 & .897 & .836 & .906 & 1.70 & 1.87 \\
 SF-OGD & .899 & .898 & .840 & .910 & 1.73 & 1.91 \\
 TCP-RM & .900 & .899 & .849 & .919 & 1.79 & 2.07 \\
+CPID & .899 & .898 & .836 & .905 & 1.72 & 1.85 \\
+RKR & .898 & .900 & .846 & .918 & 1.72 & 1.92 \\
 HAR-QREG & .890 & .886 & .815 & .848 & 1.65 & 1.71 \\
 KNN-state & .894 & .892 & .829 & .908 & 1.67 & 1.84 \\
 XS-panel & .900 & .907 & .827 & .933 & 1.80 & 1.99 \\
@@ -157,18 +198,26 @@ costly by the standard efficiency metric of the interval-forecasting
 literature: a Model Confidence Set \citep{hansen2011model}
 over daily cross-sectional mean interval scores \citep{winkler1972decision}
 retains both RC variants among the undominated set (RC hand-tuned has the
-lowest mean loss) and eliminates SF-OGD, TCP-RM, XS-panel, and POGO
-($p < .001$); we do not detect inferior average interval-score
-performance. Fourth, similarity weighting
+lowest mean loss) and eliminates SF-OGD, TCP-RM, CPID, RKR, XS-panel,
+and POGO ($p \le .001$); we do not detect inferior average
+interval-score performance. Fourth, similarity weighting
 without a coverage feedback loop does not solve the problem: KNN-state
 improves on ACI in stress by only 0.1 points. Selecting similar days is
 not the same as tracking a coverage target within a regime, which is why our
-pooling operates inside the tracking loop. Fifth, the two most recently
-proposed baselines bracket our design and fall short on opposite sides.
-TCP-RM is the strongest per-stock method in stress (84.9\%, still $3.1$
-points below RC, $t = 2.21$, $p = .027$) but pays for it with the widest
-per-stock intervals, because its rolling 60-day window forgets calm-period
-scores wholesale rather than conditioning on the regime. XS-panel
+pooling operates inside the tracking loop. Fifth, the recently proposed baselines bracket our design and fall
+short from different directions. TCP-RM is the strongest per-stock
+method in stress (84.9\%, still $3.1$ points below RC, $t = 2.21$,
+$p = .027$, the only pairwise gap outside the 1\% level) but pays for
+it with the widest per-stock intervals, because its rolling 60-day
+window forgets calm-period scores wholesale rather than conditioning on
+the regime. RKR --- the no-regret multigroup generalization of ACI,
+given our bins --- is next at 84.6\% ($-3.5$, $p = .007$): the
+group-conditional update helps a single stream, but a stock's own
+stress history remains too short. Conformal PID reaches 83.6\%
+($-4.3$, $p = .008$), which matters for mechanism attribution: our
+corrector borrows PID's integrator structure, so the gain over CPID is
+not ``PID plus a faster rate'' --- it is the pooled panel signal that
+integrator consumes. XS-panel
 calibrates on recent cross-sections of the same panel our method pools
 (the most recent five observed days; the original method's
 contemporaneous-outcome construction is not available when all next-day
@@ -181,7 +230,7 @@ the gain comes from combining them inside regime-conditional trackers.
 Sixth, a published group-conditional guarantee is not the same as
 delivered conditional coverage: POGO, handed our own regime bins as its
 groups, covers 85.8\% marginally and 77.1\% in stress ($-11.0$ points
-against RC, $t = 8.4$). This is not an indictment of the method --- the
+against RC, $t = 8.4$). The
 realized coverage is consistent with its stated parameter-free bound,
 which at a per-stock horizon of $T \approx 3{,}800$ rounds permits
 per-side slack of roughly 2.5 points and is vacuous for a 150-round
@@ -302,6 +351,21 @@ the model class currently entering forecasting practice.
 
 \subsection{Crisis episodes, holdout, and robustness}\label{sec:episodes}
 
+A conditioning-scheme referee should also ask whether the evaluation is
+self-referential: the algorithm conditions on VIX-percentile bins and
+the canonical stress slice uses the same partition. Re-slicing the
+identical issued intervals by stress definitions \emph{external} to
+the algorithm answers this. The RC--ACI gap survives every acute
+volatility definition --- absolute VIX $\ge 30$ ($+2.7$ points,
+$p = .015$, 230 dates), market realized-volatility tail ($+4.1$,
+$p = .003$), the eight named crisis windows ($+1.3$, $p = .06$) ---
+and attenuates, as it mechanically must, on broad definitions
+dominated by moderate-volatility days where ACI is already adequate
+(absolute VIX $\ge 25$: $+0.5$, n.s.) or on stress notions that are
+not acute-volatility events at all (credit-spread tail: $+0.7$,
+n.s.). The repair is a property of acute volatility states however
+defined, not of the VIX-percentile encoding.
+
 \begin{figure}[t]
 \centering
 \includegraphics{figures/fig_alpha_sweep.pdf}
@@ -327,7 +391,7 @@ Figure~\ref{fig:episodes} slices the sample into eight named stress
 windows. The pattern is the day-2 result writ large: episodes with
 sustained stress (COVID, 2018~Q4, 2011, 2025) improve by 3--10 points;
 one-week flash events dominated by their onset days (2015 CNY devaluation,
-2024 yen unwind) barely move: the honest boundary again. Robustness
+2024 yen unwind) barely move: the same onset boundary. Robustness
 checks (artifacts in the replication package): the failure and its repair
 reproduce on disjoint alternating-alphabet halves of the universe with a
 frozen configuration (stress coverage .832/.829 ACI vs .875/.876 RC);

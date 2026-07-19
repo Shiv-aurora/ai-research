@@ -48,6 +48,12 @@ STEPS: list[tuple[str, list[str]]] = [
                            "reports/e17_dispersion.csv"]),
     ("e18_onset_uncertainty", ["reports/e18_dse_ci.csv",
                                "reports/e18_pareto.csv"]),
+    ("e19_crisis_inference", ["reports/e19_primary.csv",
+                              "reports/e19_romano_wolf.csv"]),
+    ("e20_mechanism_sims", ["reports/e20_rho_neff.csv",
+                            "reports/e20_sim_grid.csv"]),
+    ("e21_stress_definitions", ["reports/e21_stress_definitions.csv",
+                                "reports/e21_interval_validity.csv"]),
 ]
 
 

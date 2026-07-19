@@ -22,11 +22,14 @@ Exact distribution-free conditional coverage is impossible in finite
 samples \citep{foygelbarber2021limits}; practical work therefore targets
 coverage over specified groups. Multivalid prediction achieves multi-group
 validity in batch and adversarial settings \citep{bastani2022practical},
-and \citet{bharti2026parameterfree} obtain parameter-free group-conditional
-online conformal guarantees; we implement their method as a baseline,
-supplying our own regime bins as its groups
-(Section~\ref{sec:results}). In all of these the groups are \emph{given}
-to the algorithm. Our regimes are estimated online from market data: the
+\citet{bharti2026parameterfree} obtain parameter-free group-conditional
+online conformal guarantees via coin-betting, and
+\citet{ramalingam2025noregret} connect no-regret (FTRL) dynamics to
+adversarial group-conditional coverage through a multigroup
+generalization of ACI with linearly parameterized thresholds. We
+implement both as baselines, supplying our own regime bins as their
+groups (Section~\ref{sec:results}). In all of these the groups are
+\emph{given} to the algorithm. Our regimes are estimated online from market data: the
 guarantee necessarily conditions on the filtered estimate, and we quantify
 the cost of that estimation both theoretically
 (Remark~\ref{rem:estimated}) and with a hindsight ablation
@@ -50,24 +53,25 @@ we evaluate conditionally throughout. \citet{lin2022conformal} and the
 weighted panel extension of \citet{wtqa2026panel} pool calibration
 information across cross-sectional units; similarity weighting appears in
 our comparison as the KNN-state baseline, and Section~\ref{sec:results}
-implements the three closest recent proposals on the identical panel:
-TCP-RM \citep{aich2025temporal} with its published constants, a
-cross-sectional split-conformal baseline adapted to our information
-structure from \citet{wtqa2026panel} (their contemporaneous-outcome
-construction does not exist when all next-day forecasts are issued
-simultaneously, so ours calibrates on the most recent observed
-cross-sections and is an adaptation, not the original algorithm), and
-POGO \citep{bharti2026parameterfree} run per stock with our bins as its
-groups. TCP-RM and XS-panel are marginally valid, POGO covers within
-its (looser) parameter-free bound, and all three
-leave most of the stress deficit in place, which is why our pooling
-operates inside regime-conditional tracking loops instead.
-Table~\ref{tab:related} locates this paper against the four nearest
+implements the closest recent proposals on the identical panel:
+TCP-RM \citep{aich2025temporal} with its published constants, conformal
+PID \citep{angelopoulos2023conformal}, a cross-sectional
+split-conformal baseline adapted to our information structure from
+\citet{wtqa2026panel} (their contemporaneous-outcome construction does
+not exist when all next-day forecasts are issued simultaneously, so
+ours calibrates on the most recent observed cross-sections and is an
+adaptation, not the original algorithm), and the two group-conditional
+methods, POGO \citep{bharti2026parameterfree} and RKR
+\citep{ramalingam2025noregret}, run per stock with our bins as their
+groups. All are marginally valid or cover within their own stated
+bounds, and all leave most of the stress deficit in place, which is why
+our pooling operates inside regime-conditional tracking loops instead.
+Table~\ref{tab:related} locates this paper against its nearest
 neighbours, each of which now appears in the empirical comparison.
 
 \begin{table}[t]
 \centering
-\caption{The four nearest methods and where this paper differs.
+\caption{The nearest methods and where this paper differs.
 ``Feedback'' means an online update driven by realized coverage errors.}
 \label{tab:related}
 \small
@@ -77,6 +81,8 @@ neighbours, each of which now appears in the empirical comparison.
 \midrule
 \citet{bharti2026parameterfree} & single stream & given to algorithm &
 group-conditional & synthetic + benchmark ML \\
+\citet{ramalingam2025noregret} & single stream & given to algorithm &
+group-conditional (FTRL) & synthetic + tabular shift \\
 \citet{aich2025temporal} & 3 index series & none &
 marginal (feedback) & marginal + crisis window \\
 \citet{wtqa2026panel} & generic panel & none (unit similarity) &

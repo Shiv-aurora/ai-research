@@ -31,5 +31,8 @@ the per-experiment notes in `docs/RESULTS.md`.
 | Numeric theorem bounds; episode bootstrap; HAC sensitivity | E16 | `scripts/e16_bounds_inference.py` | `e16_bound_values.csv`, `e16_episode_bootstrap.csv`, `e16_hac_sensitivity.csv` |
 | K=1 vs K=4 conditional inference | E17 | `scripts/e17_k1_vs_k4.py` | `e17_regime_slices.csv`, `e17_dse_diff.csv`, `e17_dispersion.csv` |
 | Onset uncertainty + widening Pareto | E18 | `scripts/e18_onset_uncertainty.py` | `e18_entries.csv`, `e18_dse_ci.csv`, `e18_loo_day2.csv`, `e18_trajectories.csv`, `e18_pareto.csv` |
+| Calendar-time crisis inference; Romano-Wolf; non-inferiority | E19 | `scripts/e19_crisis_inference.py` | `e19_primary.csv`, `e19_stress_regression.csv`, `e19_romano_wolf.csv`, `e19_noninferiority.csv` |
+| Effective panel size; mechanism simulations | E20 | `scripts/e20_mechanism_sims.py` | `e20_rho_neff.csv`, `e20_sim_grid.csv` |
+| External stress definitions; interval-validity diagnostics | E21 | `scripts/e21_stress_definitions.py` | `e21_stress_definitions.csv`, `e21_interval_validity.csv` |
 | Regime-estimator robustness statements | — | `scripts/e2_panel.py` | `e2_panel_summary.csv` |
 | Onset/transition statements | — | `scripts/e2_onset.py`, `scripts/e2_transition.py` | `e2onset_*.csv`, `e2_transition_*.csv` |

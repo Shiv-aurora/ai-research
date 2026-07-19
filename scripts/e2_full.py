@@ -11,6 +11,12 @@ Methods (all two-sided at alpha=0.10, walk-forward, common sample):
                         (Tu-Giesecke 2026 spirit; panel pooling, no regimes)
   pogo                  parameter-free group-conditional coin-betting
                         (Bharti et al. 2026), per stock, our hard VIX bins
+  cpid                  conformal PID control (Angelopoulos et al. 2023),
+                        per stock: quantile tracking + saturated
+                        integrator + trailing-quantile scorecaster
+  rkr                   no-regret FTRL group-conditional (Ramalingam,
+                        Kiyani & Roth 2025), per stock, overlapping
+                        groups = marginal + our hard VIX bins
   pooled_k1             our machinery with K=1 (pooling without regimes)
   rc_hand               pooled regime-conditional, hand-tuned rates
   rc_adaptive           pooled regime-conditional, adaptive rates (ours)
@@ -36,6 +42,8 @@ from src.conformal.panel_hierarchical import run_panel_mondrian
 from src.conformal.sfogd import run_sfogd
 from src.conformal.panel_xs import run_panel_xs
 from src.conformal.pogo import run_pogo_panel
+from src.conformal.pid import run_conformal_pid
+from src.conformal.rkr import marginal_plus_bins, run_rkr
 from src.conformal.similarity import run_knn_state_conformal
 from src.conformal.tcp import run_tcp_rm
 from src.eval.coverage import coverage_by_state, marginal_coverage
@@ -86,6 +94,10 @@ def _stock_worker(args):
            "dtaci": lambda: run_dtaci(s, alpha=ALPHA, warmup=WARMUP),
            "sfogd": lambda: run_sfogd(s, alpha=ALPHA, warmup=WARMUP),
            "tcp_rm": lambda: run_tcp_rm(s, alpha=ALPHA, warmup=WARMUP),
+           "cpid": lambda: run_conformal_pid(s, alpha=ALPHA, warmup=WARMUP),
+           "rkr": lambda: run_rkr(
+               s, marginal_plus_bins(g["vix_pctl"].values), alpha=ALPHA,
+               warmup=WARMUP),
            }[method]()
     g["lo"] = g["pool"].values - res["q_lo"].values
     g["hi"] = g["pool"].values + res["q_hi"].values
@@ -124,7 +136,9 @@ def main() -> None:
     member = aligned_bins(market)
 
     print("[1/3] per-stock ACI / DtACI / SF-OGD / HAR-QREG across cores ...")
-    jobs = [(m, g) for m in ["aci", "dtaci", "sfogd", "tcp_rm", "har_qreg"]
+    preds = preds.merge(state, on=["ticker", "date"], how="left")
+    jobs = [(m, g) for m in ["aci", "dtaci", "sfogd", "tcp_rm", "cpid",
+                             "rkr", "har_qreg"]
             for _, g in preds.groupby("ticker")]
     bounds: dict[str, list | pd.DataFrame] = {}
     for r in pmap(_stock_worker, jobs):
@@ -209,8 +223,10 @@ def main() -> None:
         cov_frames[name] = d[["ticker", "date", "vix_pctl", "covered"]]
         daily_cov_rows.append(
             d.groupby("date")
-            .agg(covered=("covered", "mean"), n=("covered", "size"),
-                 vix_pctl=("vix_pctl", "first"))
+            .agg(covered=("covered", "mean"),
+                 covered_hi=("covered_hi", "mean"),
+                 is_=("is_", "mean"), width=("width", "mean"),
+                 n=("covered", "size"), vix_pctl=("vix_pctl", "first"))
             .assign(method=name).reset_index())
 
     summary = pd.DataFrame(rows).set_index("method")

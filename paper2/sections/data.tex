@@ -40,7 +40,7 @@ Regime slices for evaluation are trailing VIX-percentile bins: calm
 ($\le$0.5), normal (0.5--0.8), elevated (0.8--0.95), stress ($>$0.95);
 the stress slice contains 14{,}085 stock-days on 150 distinct dates
 spanning 2011, 2015, 2018, 2020, 2022, 2024, and 2025 episodes. Method comparisons are computed on the common sample on
-which all eleven methods are defined; Table~\ref{tab:flow} accounts for
+which all thirteen methods are defined; Table~\ref{tab:flow} accounts for
 every exclusion between the full panel and that sample; the common
 sample is unchanged by the addition of new baselines because each new
 method's usable set contains it. The reduction is
@@ -56,7 +56,7 @@ and figure regenerates from one driver script.
 
 \begin{table}[t]
 \centering
-\caption{Sample flow: from the full panel to the eleven-method
+\caption{Sample flow: from the full panel to the thirteen-method
 common comparison sample. Each ``usable by'' row counts stock-days on
 which that method produces a non-warmup interval.}
 \label{tab:flow}
@@ -67,7 +67,7 @@ Stage & Stock-days \\
 \midrule
 Full panel 2005--2025 & 519{,}843 \\
 With point forecast and target & 394{,}213 \\
-Usable by ACI / DtACI / SF-OGD / TCP-RM & 375{,}072 \\
+Usable by ACI / DtACI / SF-OGD / TCP-RM / CPID / RKR & 375{,}072 \\
 Usable by KNN-state / XS-panel / pooled $K=1$ / RC (both) & 365{,}569 \\
 Usable by POGO (per-stock length filter) & 356{,}172 \\
 Usable by HAR-QREG (800-day training minimum) & 269{,}705 \\

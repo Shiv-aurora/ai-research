@@ -13,7 +13,7 @@ them, and the script that regenerates them. All artifacts live in `reports/`
 Evaluation conventions: alpha=0.10 two-sided unless stated; regimes sliced
 by trailing-750d VIX percentile bins calm(<=.5)/normal(.5-.8)/
 elevated(.8-.95)/stress(>.95); eval sample 2010+ after 100-day calibration
-warmup; ~375k out-of-sample stock-days (E2 eleven-method common sample:
+warmup; ~375k out-of-sample stock-days (E2 thirteen-method common sample:
 269,705), panel 2005-2025: 519,843 stock-days.
 
 Universe: CRSP point-in-time top-100 by market cap, rebalanced each January
@@ -52,12 +52,12 @@ Script: `scripts/e1_prototype.py`.
 
 ## E2 — Main interval comparison + MCS (Table 2)
 
-Eleven methods, common 269,705 stock-day sample, alpha=0.10 (R4 added
-tcp_rm = Aich et al. rolling conformal + Robbins-Monro offset and
-xs_panel = Tu-Giesecke-spirit cross-sectional split-conformal; R6 added
-pogo = Bharti et al. parameter-free group-conditional coin-betting, run
-per stock — its single-stream setting — with our hard VIX bins as
-groups):
+Thirteen methods, common 269,705 stock-day sample, alpha=0.10 (R4 added
+tcp_rm and xs_panel; R6 added pogo; R8 added cpid = conformal PID
+(Angelopoulos et al. 2023: tracking + saturated integrator +
+trailing-quantile scorecaster, per stock) and rkr = Ramalingam-Kiyani-
+Roth no-regret FTRL multigroup ACI (per stock, overlapping
+marginal+bin groups)):
 
 | method | marginal | stress | stress upper | width | width stress |
 |---|---|---|---|---|---|
@@ -65,6 +65,8 @@ groups):
 | dtaci | .8986 | .8360 | .9058 | 1.699 | 1.870 |
 | sfogd | .8992 | .8403 | .9102 | 1.734 | 1.909 |
 | tcp_rm | .8995 | .8488 | .9190 | 1.790 | 2.069 |
+| cpid | .8993 | .8363 | .9048 | 1.724 | 1.855 |
+| rkr | .8984 | .8457 | .9175 | 1.720 | 1.921 |
 | har_qreg | .8899 | .8147 | .8484 | 1.645 | 1.708 |
 | knn_state | .8941 | .8294 | .9081 | 1.667 | 1.837 |
 | xs_panel | .9003 | .8272 | .9326 | 1.800 | 1.985 |
@@ -78,7 +80,14 @@ rc_adaptive, t=2.21 p=.027 — the only pairwise gap not significant at 1%)
 but has the widest per-stock intervals (rolling 60-day window forgets calm
 scores wholesale). xs_panel shows cross-sectional information ALONE does
 not fix stress (.827 ~= aci) — pooling must sit inside regime-conditional
-tracking. MCS eliminates sfogd, tcp_rm, xs_panel, AND pogo (p=.000).
+tracking. MCS eliminates sfogd, tcp_rm, cpid, rkr, xs_panel, AND pogo (p<=.0005).
+
+R8 baselines: cpid stress .8363 (-4.3pp vs rc, p=.008) — RC is NOT
+'PID + faster rate'; the corrector's integrator without the pooled
+panel signal leaves the deficit. rkr stress .8457 (-3.5pp, p=.007) —
+second-best per-stock method; group-conditional FTRL helps a single
+stream but per-stock stress history is too short. Both significant at
+1%; tcp_rm remains the only 5%-level exception.
 
 pogo (POGO): undercovers everywhere (marginal .858, stress .771,
 -11.0pp vs rc, t=8.4) — CONSISTENT with its own parameter-free bound,
@@ -422,6 +431,56 @@ ablations. Artifacts: `reports/e17_regime_slices.csv`,
   unpurchased, not uncoverable; aggregator declines because day-2 = 14
   of 4,002 dates. Open problem reframed: selective onset widening.
 Paper: new subsection sec:onset-pareto. Artifacts: `reports/e18_*.csv`.
+
+## E19 — Calendar-time crisis inference + multiplicity (R8)
+
+Full-calendar regression d_t = b0 + b1*1{stress} of daily paired
+coverage diffs (no event-time compression). PRIMARY ENDPOINT
+(prespecified): stress UPPER-tail RC-ACI. Result: b0 = -0.1pp (calm gap
+~0), b1 = +4.0pp — significant under calendar HAC (p=.009),
+episode-clustered SEs (p=.016), wild cluster bootstrap over 18 episodes
+(p=.003); leave-one-episode-out spans [+2.3,+4.8], always positive.
+THE PRIMARY ENDPOINT IS CERTIFIED UNDER THE MOST CONSERVATIVE
+TREATMENT.
+
+Secondary (two-sided): b1 positive vs every per-stock baseline
+(+3.3..+5.8, calm gaps ~0) but wild-cluster p=.13-.34; Romano-Wolf
+stepdown leaves only pogo (adj p=.017) and xs_panel (.041); aci adj
+p=.099. Stated as an explicit evidential hierarchy in the paper.
+
+Non-inferiority: RC-ACI daily interval score -0.003, CI [-.022,+.015],
+margin=2% of ACI mean (.047) → formally NON-INFERIOR (point estimate
+favors RC).
+Artifacts: `reports/e19_*.csv`. Script: `scripts/e19_crisis_inference.py`.
+
+## E20 — Effective panel size + mechanism simulations (R8)
+
+Empirical intra-date correlation of upper-miss indicators (moment
+identity): rho=.158 all days → n_eff ~ 6; rho=.898 STRESS days →
+n_eff ~ 1.1. On crisis days the panel is informationally ~one stream:
+within stress, pooling's residual edge over rate-matched per-stock arms
+comes from the graded batch signal (miss FRACTION vs binary miss) and
+the shared threshold, not variance averaging. Fixes the wrong 1/n
+claim from R6 (reviewer was right).
+
+Simulations (factor panels, controlled fixed rate): pooled K=2 >
+pooled K=1 > per-stock in every cell of rho{0,.3,.6,.9} x n{10,100} x
+sigma_h{0,.5}; pooled advantage largest at rho=0/n=100 (.83 vs .51),
+shrinks monotonically in rho (.67 at rho=.9), eroded by heterogeneity
+at low rho — exactly the Var(mean)=sigma^2[rho+(1-rho)/n] prediction.
+Artifacts: `reports/e20_rho_neff.csv`, `reports/e20_sim_grid.csv`.
+
+## E21 — Stress definitions external to the algorithm (R8)
+
+Same issued intervals re-sliced: canonical +5.2pp (p=.002); VIX>=30
++2.7 (p=.015, 230 dates); mkt-RV tail +4.1 (p=.003); named windows
++1.3 (p=.06); VIX>=25 +0.5 ns (475 mild dates); credit-spread tail
++0.7 ns (different phenomenon). Repair = property of acute-vol states
+however defined, not of the VIX-percentile encoding.
+
+Interval validity: 365,569 issued intervals, min q_hi 1.28, min q_lo
+0.97, ZERO negative, ZERO crossed.
+Artifacts: `reports/e21_*.csv`. Script: `scripts/e21_stress_definitions.py`.
 
 ## E12 — Alpha robustness
 

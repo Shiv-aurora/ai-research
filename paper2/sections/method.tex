@@ -12,7 +12,13 @@ The target is next-day log realized variance $y_{i,t+1} = \log
 regression \citep{corsi2009simple} and a pooled gradient-boosted model
 (LightGBM) by exponentially weighted aggregation on QLIKE loss
 \citep{patton2011volatility}, refit on an expanding window with a hard
-train/test date assertion. The pool ties its components (QLIKE 0.191 vs
+train/test date assertion. Scale conventions, exactly: experts forecast
+log variance; QLIKE is evaluated in \emph{variance} space by
+exponentiating, $\mathrm{QLIKE} = e^{y - m} - (y - m) - 1$; the pool is
+the weight-averaged forecast in \emph{log} space (a geometric mean of
+variance forecasts), with no Jensen retransformation correction ---
+any resulting location bias is absorbed by the calibration layer, which
+wraps whatever point forecast it is given. The pool ties its components (QLIKE 0.191 vs
 0.194/0.188; Table~\ref{tab:e0}); everything downstream applies unchanged
 to any member (Section~\ref{sec:ablations} conformalizes HAR and LightGBM
 alone), to a zero-shot foundation model (Section~\ref{sec:tsfm}), and to
@@ -62,14 +68,19 @@ stock $i$ the interval $[L_{i,t}, U_{i,t}]$ with
   U_{i,t} = m_{i,t} + \Bigl( \textstyle\sum_k \pi_t(k)\,
   q_t^{\mathrm{hi}}(k) \Bigr) \hat\sigma_{i,t}.
 \]
-After observing outcomes, each side takes one gradient step per
-\emph{stock-day} (Section~\ref{sec:theory}, eq.~\eqref{eq:update}): every
-regime's threshold moves proportionally to its membership and to the day's
-summed coverage error across the panel. This per-observation stepping is
-the pooling mechanism: on a 100-name panel, the stress regime receives
-roughly $15{,}000$ update steps over the sample where a single stock would
-provide $\sim$150 (their informational content under cross-sectional
-dependence is discussed in Remark~\ref{rem:dependence}). The headline
+After observing outcomes, each side takes one \emph{summed
+cross-sectional mini-batch} gradient step per day
+(Section~\ref{sec:theory}, eq.~\eqref{eq:update}): every regime's
+threshold moves proportionally to its membership and to the day's
+summed coverage error across the panel, so the step size scales with
+the number of stock-days the regime governs. This panel-scaled stepping
+is the pooling mechanism: on a 100-name panel the stress regime's
+cumulative movement budget corresponds to roughly $15{,}000$ stock-day
+error contributions over the sample where a single stock would provide
+$\sim$150 --- one batched step per day, not $15{,}000$ sequential
+updates, and the informational content of the batch under
+cross-sectional dependence is quantified in
+Section~\ref{sec:mechanism-sims}. The headline
 method has no per-stock parameters; a per-stock offset variant is
 evaluated as an ablation and found negligible
 (Table~\ref{tab:ablations}).
