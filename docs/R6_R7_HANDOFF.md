@@ -7,6 +7,34 @@ this file, then `docs/RESULTS.md` (E15–E18 sections) and
 `github.com/Shiv-aurora/ai-research`, branch `main`, last pushed commit
 `50db373` (R5). **UPDATE: R6 committed as `eb5487e` and pushed. Steps 1-5 of the remaining list are DONE (RESULTS.md E2/E3 updated, PDF rebuilt clean 45pp/0 undefined/0 'Appendix Appendix'/0 visible 'oracle', figures regenerated with de-oracled legends, 76+2 tests green). R7 committed as `7568055` and pushed: highlights separate file, figures de-truncated with HAC-CI whiskers (fig1/tsfm/decomposition/dse), manuscript 44pp clean. Memory updated. ALL R6+R7 WORK COMPLETE. Open items are user-facing only: title decision (reviewer suggests weighting panel-pooling >= regimes — E17 supports it), cold read of paper2/main.pdf, replication zip, 4-6 suggested reviewers, competing-interests docx, IJF prior-version disclosure (RIVE/MLWA) in the cover letter.**
 
+## R8 UPDATE (committed `e175bbe`, pushed) — third review answered
+
+All computable items from the third AI review are DONE: E19 calendar-time
+inference (PRIMARY endpoint = stress upper-tail RC-ACI +4.0pp, wild
+cluster p=.003, LOO always positive; secondary two-sided uncertified
+under episode wild bootstrap p=.13-.34 / Romano-Wolf — explicit
+evidential hierarchy in results.tex; non-inferiority formal), E20
+(rho=.16/n_eff~6 all days, rho=.90/n_eff~1.1 STRESS — 1/n claim was
+wrong and is fixed; simulation grid confirms rho-dependence; new
+sec:mechanism-sims), 13-method table (cpid -4.3pp p=.008 — not
+'PID+rate'; rkr -3.5pp p=.007), E21 external stress definitions +
+zero crossed intervals, mini-batch wording, defensive language
+stripped, hidelinks, QLIKE conventions, abstract 148w disaggregated.
+Scripts: e19_crisis_inference.py, e20_mechanism_sims.py,
+e21_stress_definitions.py; src/conformal/pid.py, rkr.py. 83 tests.
+Manuscript 48pp clean.
+
+REMAINING (R9, task #18): (1) pooling-first abstract/contribution
+reframe — partially done via abstract; contribution list still leads
+with regimes; (2) 20-30% cut + supplementary document (move Chronos
+case study, onset detail, HMM robustness, secondary tables) — AWAITING
+USER GO; (3) untouched validation: prospective Jan-Jun 2026 extension +
+mid-cap universe — BLOCKED on user WRDS token session + Risk Lab 2026
+availability check; (4) replication zip with anonymization sweep.
+Optional: KNN k / XS window sensitivity sweeps (documented as
+prespecified instead); TimesFM second TSFM (recommended alternative:
+Chronos-case-study relabel in the supplement restructure).
+
 ## Context
 
 R6 = empirical workstream answering the review's substantive demands.
